@@ -298,7 +298,7 @@
         <div id="water-cups-container" class="water-cups-row"></div>
       </section>
 
-      <!-- Steps & Google Fit Card -->
+      <!-- Steps & Activity Summary Card -->
       <section class="card">
         <div class="card-header">
           <div class="card-title">
@@ -307,22 +307,29 @@
               <path d="M12 20V4"></path>
               <path d="M6 20v-6"></path>
             </svg>
-            فعالیت و گام‌شمار Google Fit
+            گام‌شمار و فعالیت روزانه
           </div>
-          <span id="gfit-sync-badge" class="card-subtitle" style="color: var(--emerald-light);">آماده همگام‌سازی</span>
+          <span id="dash-steps-goal-badge" class="card-subtitle" style="color: var(--emerald-light);">هدف: ۸,۰۰۰ گام</span>
         </div>
-        <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
           <div>
-            <div style="font-size: 1.5rem; font-weight: 900; color: var(--emerald-light);">
+            <div style="font-size: 1.6rem; font-weight: 900; color: var(--emerald-light);">
               <span id="dash-steps-count">0</span> <span style="font-size: 0.85rem; color: var(--text-muted);">گام</span>
             </div>
             <div style="font-size: 0.82rem; color: var(--text-muted);">
-              کالری فعالیت: <span id="dash-steps-cals" style="font-weight: 800; color: #fff;">0</span> kcal
+              کالری سوزانده شده: <span id="dash-steps-cals" style="font-weight: 800; color: #fff;">0</span> kcal
             </div>
           </div>
-          <button id="btn-sync-gfit-dash" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.82rem;">
-            🔄 همگام‌سازی
+          <button id="btn-quick-add-steps-dash" class="btn btn-secondary" style="padding: 8px 14px; font-size: 0.82rem;">
+            + ثبت سریع گام
           </button>
+        </div>
+        <!-- Quick Steps Chips on Dashboard -->
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button class="quick-chip-btn btn-dash-chip" data-steps="1000">+ ۱,۰۰۰ گام</button>
+          <button class="quick-chip-btn btn-dash-chip" data-steps="3000">+ ۳,۰۰۰ گام</button>
+          <button class="quick-chip-btn btn-dash-chip" data-steps="5000">+ ۵,۰۰۰ گام</button>
+          <button class="quick-chip-btn btn-dash-chip" data-steps="8000">+ ۸,۰۰۰ گام</button>
         </div>
       </section>
 
@@ -371,21 +378,79 @@
          ========================================================================= -->
     <main id="view-activity" class="main-view">
       
+      <!-- Card 1: Live Phone Motion Pedometer -->
       <section class="card">
         <div class="card-header">
-          <div class="card-title">اتصال به Google Health / Fit</div>
-          <button id="btn-gfit-guide" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;">راهنما</button>
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px;color:var(--emerald-light);">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+            </svg>
+            گام‌شمار سنسوری گوشی (Live Pedometer)
+          </div>
+          <span id="pedometer-status-badge" class="badge" style="background: rgba(148, 163, 184, 0.15); color: var(--text-muted); font-size: 0.72rem; padding: 3px 8px; border-radius: 6px;">آماده به کار</span>
         </div>
-        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 14px;">
-          با اتصال حساب گوگل، تعداد قدم‌ها و کالری سوزانده شده روزانه شما مستقیماً دریافت می‌شود.
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;">
+          با سنسور شتاب‌سنج گوشی شما گام‌ها را در لحظه تشخیص می‌دهد؛ بدون نیاز به اینترنت یا پیچیدگی‌های اتصال گوگل.
         </p>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button id="btn-auth-gfit" class="btn btn-primary" style="flex: 1;">
-            🔗 اتصال به حساب گوگل
+
+        <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px; text-align: center; margin-bottom: 14px;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">تعداد گام‌های این پیاده‌روی</div>
+          <div style="font-size: 2.5rem; font-weight: 900; color: var(--emerald-light); line-height: 1.1;" id="live-pedometer-count">0</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+            کالری تقریبی: <span id="live-pedometer-cals" style="color: #fff; font-weight: 700;">0</span> kcal
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-start-pedometer" class="btn btn-primary" style="flex: 1;">
+            ▶️ شروع پیاده‌روی زنده
           </button>
-          <button id="btn-manual-sync-gfit" class="btn btn-secondary" style="flex: 1;">
-            🔄 دریافت اطلاعات امروز
+          <button id="btn-stop-pedometer" class="btn btn-secondary" style="flex: 1; display: none; background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #fca5a5;">
+            ⏹ اتمام و ثبت در فعالیت‌های امروز
           </button>
+        </div>
+      </section>
+
+      <!-- Card 2: Quick Steps & Watch / Google Takeout Sync -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px;color:var(--accent);">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+            ثبت سریع گام یا ایمپورت فایل گزارش سلامت
+          </div>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+          تعداد قدم‌هایتان را از ساعت هوشمند (شیائومی، سامسونگ، اپل یا Health Connect) وارد کنید یا فایل خروجی را مستقیماً بارگذاری نمایید:
+        </p>
+
+        <!-- Quick Steps Input -->
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <input type="number" id="input-quick-steps" class="form-input" placeholder="تعداد گام (مثلاً ۵۰۰۰)" style="flex: 1;">
+          <button id="btn-submit-quick-steps" class="btn btn-primary" style="padding: 8px 18px;">
+            + ثبت گام
+          </button>
+        </div>
+
+        <!-- Quick Chips -->
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;">
+          <button class="quick-chip-btn btn-act-chip" data-steps="1000">+ ۱,۰۰۰</button>
+          <button class="quick-chip-btn btn-act-chip" data-steps="3000">+ ۳,۰۰۰</button>
+          <button class="quick-chip-btn btn-act-chip" data-steps="5000">+ ۵,۰۰۰</button>
+          <button class="quick-chip-btn btn-act-chip" data-steps="8000">+ ۸,۰۰۰</button>
+          <button class="quick-chip-btn btn-act-chip" data-steps="10000">+ ۱۰,۰۰۰</button>
+        </div>
+
+        <!-- File Importer -->
+        <div style="border-top: 1px dashed var(--border); padding-top: 14px;">
+          <button id="btn-trigger-health-import" class="btn btn-secondary btn-block">
+            📁 بارگذاری فایل سلامت یا خروجی گوگل (CSV / JSON)
+          </button>
+          <input type="file" id="input-health-file" accept=".json,.csv" style="display: none;">
+          <div style="font-size: 0.74rem; color: var(--text-sub); text-align: center; margin-top: 6px;">
+            پشتیبانی از خروجی Google Takeout، Health Connect و گزارش گام‌های ساعت‌های هوشمند
+          </div>
         </div>
       </section>
 
@@ -568,18 +633,6 @@
         <button id="btn-save-gemini-api-key" class="btn ai-glow-btn btn-block">
           ذخیره کلید هوش مصنوعی
         </button>
-      </section>
-
-      <!-- Google Fit Settings -->
-      <section class="card">
-        <div class="card-header">
-          <div class="card-title">تنظیمات Google Client ID</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Google OAuth 2.0 Client ID</label>
-          <input type="text" id="input-gfit-client-id" class="form-input" placeholder="xxxx.apps.googleusercontent.com">
-        </div>
-        <button id="btn-save-gfit-client-id" class="btn btn-secondary btn-block">ذخیره Client ID</button>
       </section>
 
       <!-- Backup & Restore Data -->

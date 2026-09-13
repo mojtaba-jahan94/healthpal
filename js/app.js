@@ -40,14 +40,7 @@ class HealthApp {
     this.bindPortionPickerEvents();
     await this.loadDateData(this.currentDate);
     await this.loadWeightHistory();
-    await googleFit.init();
     await gemini.init();
-    
-    const storedGfitId = await googleFit.getStoredClientId();
-    if (storedGfitId) {
-      const gfitInput = document.getElementById('input-gfit-client-id');
-      if (gfitInput) gfitInput.value = storedGfitId;
-    }
 
     const storedGeminiKey = await gemini.getApiKey();
     if (storedGeminiKey) {
@@ -1085,52 +1078,153 @@ class HealthApp {
       this.showToast('پروفایل با موفقیت ذخیره شد');
     });
 
-    // Google Fit Integration Events
-    document.getElementById('btn-gfit-guide').addEventListener('click', () => {
-      this.openModal('modal-gfit-guide');
-    });
+    // --- Live Motion Pedometer Events ---
+    const btnStartPed = document.getElementById('btn-start-pedometer');
+    const btnStopPed = document.getElementById('btn-stop-pedometer');
+    const pedCountEl = document.getElementById('live-pedometer-count');
+    const pedCalsEl = document.getElementById('live-pedometer-cals');
+    const pedBadge = document.getElementById('pedometer-status-badge');
 
-    document.getElementById('btn-save-gfit-client-id').addEventListener('click', async () => {
-      const clientId = document.getElementById('input-gfit-client-id').value.trim();
-      if (!clientId) {
-        this.showToast('لطفاً Client ID را وارد کنید', 'error');
-        return;
-      }
-      await googleFit.setClientId(clientId);
-      this.showToast('Client ID با موفقیت ذخیره شد');
-    });
+    if (btnStartPed && btnStopPed) {
+      btnStartPed.addEventListener('click', async () => {
+        try {
+          if (pedCountEl) pedCountEl.textContent = '0';
+          if (pedCalsEl) pedCalsEl.textContent = '0';
 
-    const syncFitHandler = async () => {
-      try {
-        const badge = document.getElementById('gfit-sync-badge');
-        badge.textContent = 'در حال ارتباط...';
-
-        const fitData = await googleFit.fetchDailyActivity(this.currentDate);
-        if (fitData.steps > 0 || fitData.calories > 0) {
-          await db.addExerciseLog({
-            date: this.currentDate,
-            type: 'steps',
-            name: 'همگام‌سازی Google Fit',
-            durationMin: fitData.activeMinutes || 30,
-            caloriesBurned: fitData.calories || Math.round(fitData.steps * 0.04),
-            steps: fitData.steps
+          await googleFit.startLivePedometer((steps) => {
+            if (pedCountEl) pedCountEl.textContent = steps.toLocaleString('fa-IR');
+            const cals = googleFit.calculateStepCalories(steps, this.profile?.weight || 70);
+            if (pedCalsEl) pedCalsEl.textContent = cals;
           });
 
-          await this.loadDateData(this.currentDate);
-          this.showToast(`گام‌ها دریافت شد: ${fitData.steps.toLocaleString('fa-IR')}`);
-        } else {
-          this.showToast('دیتای جدیدی در گوگل فیت یافت نشد');
+          btnStartPed.style.display = 'none';
+          btnStopPed.style.display = 'inline-flex';
+          if (pedBadge) {
+            pedBadge.textContent = '🟢 در حال شمارش گام';
+            pedBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+            pedBadge.style.color = 'var(--emerald-light)';
+          }
+          this.showToast('گام‌شمار فعال شد. گوشی را هنگام راه رفتن همراه خود داشته باشید.');
+        } catch (err) {
+          console.error('Pedometer error:', err);
+          this.showToast(err.message || 'عدم امکان دسترسی به حسگر حرکتی', 'error');
         }
-        badge.textContent = 'همگام‌سازی شد';
-      } catch (err) {
-        console.error('Fit sync error:', err);
-        this.showToast(err.message || 'خطا در ارتباط با گوگل', 'error');
+      });
+
+      btnStopPed.addEventListener('click', async () => {
+        const steps = googleFit.stopLivePedometer();
+        btnStartPed.style.display = 'inline-flex';
+        btnStopPed.style.display = 'none';
+        if (pedBadge) {
+          pedBadge.textContent = 'آماده به کار';
+          pedBadge.style.background = 'rgba(148, 163, 184, 0.15)';
+          pedBadge.style.color = 'var(--text-muted)';
+        }
+
+        if (steps > 0) {
+          await googleFit.logSteps(steps, this.currentDate, this.profile?.weight || 70);
+          this.showToast(`🎉 ${steps.toLocaleString('fa-IR')} گام جدید با موفقیت ثبت شد`);
+          await this.loadDateData(this.currentDate);
+        } else {
+          this.showToast('گامی برای ثبت تشخیص داده نشد');
+        }
+      });
+    }
+
+    // --- Quick Steps Submission (Input + Presets) ---
+    const submitStepsHandler = async (stepsCount) => {
+      const steps = parseInt(stepsCount) || 0;
+      if (steps <= 0) {
+        this.showToast('لطفاً تعداد گام معتبری وارد کنید', 'error');
+        return;
       }
+      await googleFit.logSteps(steps, this.currentDate, this.profile?.weight || 70);
+      this.showToast(`✨ ${steps.toLocaleString('fa-IR')} گام ثبت شد`);
+      await this.loadDateData(this.currentDate);
     };
 
-    document.getElementById('btn-auth-gfit').addEventListener('click', syncFitHandler);
-    document.getElementById('btn-manual-sync-gfit').addEventListener('click', syncFitHandler);
-    document.getElementById('btn-sync-gfit-dash').addEventListener('click', syncFitHandler);
+    const btnSubmitQuickSteps = document.getElementById('btn-submit-quick-steps');
+    const inputQuickSteps = document.getElementById('input-quick-steps');
+    if (btnSubmitQuickSteps && inputQuickSteps) {
+      btnSubmitQuickSteps.addEventListener('click', async () => {
+        const val = inputQuickSteps.value.trim();
+        await submitStepsHandler(val);
+        inputQuickSteps.value = '';
+      });
+
+      inputQuickSteps.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+          const val = inputQuickSteps.value.trim();
+          await submitStepsHandler(val);
+          inputQuickSteps.value = '';
+        }
+      });
+    }
+
+    // Activity page chips
+    document.querySelectorAll('.btn-act-chip').forEach(chip => {
+      chip.addEventListener('click', async () => {
+        const steps = chip.getAttribute('data-steps');
+        await submitStepsHandler(steps);
+      });
+    });
+
+    // Dashboard chips
+    document.querySelectorAll('.btn-dash-chip').forEach(chip => {
+      chip.addEventListener('click', async () => {
+        const steps = chip.getAttribute('data-steps');
+        await submitStepsHandler(steps);
+      });
+    });
+
+    // Dashboard "+ ثبت سریع گام" button
+    const btnQuickAddStepsDash = document.getElementById('btn-quick-add-steps-dash');
+    if (btnQuickAddStepsDash) {
+      btnQuickAddStepsDash.addEventListener('click', () => {
+        const actNav = document.querySelector('.nav-item[data-view="view-activity"]');
+        if (actNav) actNav.click();
+        setTimeout(() => {
+          const inp = document.getElementById('input-quick-steps');
+          if (inp) inp.focus();
+        }, 150);
+      });
+    }
+
+    // --- Health File Importer (JSON / CSV) ---
+    const btnTriggerHealth = document.getElementById('btn-trigger-health-import');
+    const inputHealthFile = document.getElementById('input-health-file');
+
+    if (btnTriggerHealth && inputHealthFile) {
+      btnTriggerHealth.addEventListener('click', () => {
+        inputHealthFile.click();
+      });
+
+      inputHealthFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            const content = event.target.result;
+            const importedLogs = await googleFit.importHealthFile(content, file.name);
+            
+            for (const item of importedLogs) {
+              await db.addExerciseLog(item);
+            }
+
+            this.showToast(`✅ ${importedLogs.length} رکورد فعالیت از فایل گزارش سلامت اضافه شد`);
+            await this.loadDateData(this.currentDate);
+          } catch (err) {
+            console.error('Health file import error:', err);
+            this.showToast(err.message || 'خطا در بارگذاری فایل سلامت', 'error');
+          } finally {
+            inputHealthFile.value = '';
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
 
     // Backup & Restore
     document.getElementById('btn-export-backup').addEventListener('click', async () => {

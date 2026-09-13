@@ -1,150 +1,232 @@
 /**
- * Google Fit & Health Integration Module
- * همگام‌سازی فعالیت‌ها، گام‌ها و کالری مصرفی از طریق Google Fit REST API
+ * Health & Activity Manager
+ * سیستم جامع مدیریت فعالیت‌ها، گام‌شمار زنده سنسوری، ورود سریع و ایمپورت گزارش‌های سلامت
+ * جایگزین روش‌های پیچیده و دشوار گذشته
  */
 
 import { db } from './db.js';
 
-class GoogleFitManager {
+class HealthActivityManager {
   constructor() {
-    this.tokenClient = null;
-    this.accessToken = null;
-    this.clientId = null;
+    this.isPedometerActive = false;
+    this.sessionSteps = 0;
+    this.lastAcceleration = { x: 0, y: 0, z: 0 };
+    this.threshold = 11.5; // آستانه تشخیص گام از شتاب گرانش
+    this.lastStepTime = 0;
+    this.motionHandler = null;
+    this.onStepCallback = null;
   }
 
   async init() {
-    const settings = await db.getSettings('google_fit');
-    if (settings && settings.clientId) {
-      this.clientId = settings.clientId;
-    }
-  }
-
-  setClientId(clientId) {
-    this.clientId = clientId.trim();
-    return db.saveSettings({ id: 'google_fit', clientId: this.clientId });
+    return true;
   }
 
   async getStoredClientId() {
-    const settings = await db.getSettings('google_fit');
-    return settings?.clientId || '';
+    return null;
   }
 
   /**
-   * درخواست احراز هویت از طریق Google Identity Services
+   * محاسبه کالری علمی به ازای هر گام متناسب با وزن کاربر
    */
-  async requestAuth() {
-    return new Promise((resolve, reject) => {
-      if (!this.clientId) {
-        return reject(new Error('لطفاً ابتدا Client ID گوگل خود را در بخش تنظیمات وارد کنید.'));
-      }
-
-      if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
-        return reject(new Error('کتابخانه Google Identity Services هنوز بارگذاری نشده است. لطفاً اتصال اینترنت خود را بررسی کنید.'));
-      }
-
-      try {
-        this.tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: this.clientId,
-          scope: 'https://www.googleapis.com/auth/fitness.activity.read',
-          callback: (response) => {
-            if (response.error) {
-              reject(new Error(response.error_description || response.error));
-              return;
-            }
-            this.accessToken = response.access_token;
-            resolve(this.accessToken);
-          },
-        });
-
-        this.tokenClient.requestAccessToken({ prompt: 'consent' });
-      } catch (err) {
-        reject(err);
-      }
-    });
+  calculateStepCalories(steps, weightKg = 70) {
+    const baseCalPerStep = 0.04;
+    const weightFactor = weightKg / 70;
+    return Math.round(steps * baseCalPerStep * weightFactor);
   }
 
   /**
-   * دریافت گام‌ها و کالری سوزانده شده برای یک روز مشخص
-   * @param {string} dateStr فرمت YYYY-MM-DD
+   * ثبت سریع تعداد گام‌ها و محاسبه خودکار کالری در دیتابیس
    */
-  async fetchDailyActivity(dateStr) {
-    if (!this.accessToken) {
-      await this.requestAuth();
-    }
+  async logSteps(stepsCount, dateStr, weightKg = 70) {
+    const steps = Math.max(0, parseInt(stepsCount) || 0);
+    if (steps === 0) return null;
 
-    const startOfDay = new Date(dateStr);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(dateStr);
-    endOfDay.setHours(23, 59, 59, 999);
+    const caloriesBurned = this.calculateStepCalories(steps, weightKg);
+    const durationMin = Math.round(steps / 100); // به طور میانگین هر ۱۰۰ گام حدود ۱ دقیقه
 
-    const startTimeMillis = startOfDay.getTime();
-    const endTimeMillis = endOfDay.getTime();
-
-    const requestBody = {
-      aggregateBy: [
-        {
-          dataTypeName: 'com.google.step_count.delta',
-          dataSourceId: 'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps'
-        },
-        {
-          dataTypeName: 'com.google.calories.expended',
-          dataSourceId: 'derived:com.google.calories.expended:com.google.android.gms:merge_step_deltas'
-        },
-        {
-          dataTypeName: 'com.google.active_minutes'
-        }
-      ],
-      bucketByTime: { durationMillis: 86400000 },
-      startTimeMillis,
-      endTimeMillis
+    const logItem = {
+      date: dateStr,
+      type: 'steps',
+      name: `پیاده‌روی و گام‌های روزانه (${steps.toLocaleString('fa-IR')} گام)`,
+      durationMin: Math.max(5, durationMin),
+      caloriesBurned,
+      steps
     };
 
-    const response = await fetch('https://fitness.googleapis.com/fitness/v1/users/me/dataset:aggregate', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error?.message || 'خطا در ارتباط با سرور Google Fit');
-    }
-
-    const data = await response.json();
-    return this.parseFitData(data, dateStr);
+    const logId = await db.addExerciseLog(logItem);
+    logItem.id = logId;
+    return logItem;
   }
 
-  parseFitData(data, dateStr) {
-    let steps = 0;
-    let calories = 0;
-    let activeMinutes = 0;
+  // =========================================================================
+  // سنسور زنده شتاب‌سنج و قدم‌شمار گوشی (Live Motion Pedometer)
+  // بدون نیاز به اینترنت و بدون نیاز به اکانت گوگل
+  // =========================================================================
 
-    if (data.bucket && data.bucket.length > 0) {
-      const dataset = data.bucket[0].dataset;
-      dataset.forEach(ds => {
-        const type = ds.dataTypeName;
-        ds.point.forEach(pt => {
-          if (type.includes('step_count') && pt.value && pt.value[0]) {
-            steps += pt.value[0].intVal || 0;
-          } else if (type.includes('calories') && pt.value && pt.value[0]) {
-            calories += Math.round(pt.value[0].fpVal || 0);
-          } else if (type.includes('active_minutes') && pt.value && pt.value[0]) {
-            activeMinutes += pt.value[0].intVal || 0;
+  async startLivePedometer(onStep) {
+    this.onStepCallback = onStep;
+    this.sessionSteps = 0;
+
+    // بررسی درخواست دسترسی برای دستگاه‌های دارای امنیت حسگر (مانند iOS یا برخی مرورگرها)
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      try {
+        const permissionState = await DeviceMotionEvent.requestPermission();
+        if (permissionState !== 'granted') {
+          throw new Error('دسترسی به حسگر حرکتی گوشی داده نشد.');
+        }
+      } catch (err) {
+        throw new Error('برای استفاده از قدم‌شمار زنده، لطفاً دسترسی به حسگر حرکت را تایید کنید.');
+      }
+    }
+
+    if (!window.DeviceMotionEvent) {
+      throw new Error('حسگر حرکتی شتاب‌سنج در این مرورگر یا دستگاه پشتیبانی نمی‌شود.');
+    }
+
+    this.motionHandler = (event) => {
+      const acc = event.accelerationIncludingGravity || event.acceleration;
+      if (!acc || acc.x === null) return;
+
+      const currentTime = Date.now();
+      // محاسبه بزرگی بردار شتاب
+      const magnitude = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+
+      // تشخیص قله شتاب و حداقل فاصله زمانی بین دو قدم (حداقل ۳۰۰ میلی‌ثانیه برای جلوگیری از ثبت مضاعف)
+      if (magnitude > this.threshold && (currentTime - this.lastStepTime) > 320) {
+        this.sessionSteps++;
+        this.lastStepTime = currentTime;
+        if (this.onStepCallback) {
+          this.onStepCallback(this.sessionSteps);
+        }
+      }
+    };
+
+    window.addEventListener('devicemotion', this.motionHandler, true);
+    this.isPedometerActive = true;
+    return true;
+  }
+
+  stopLivePedometer() {
+    if (this.motionHandler) {
+      window.removeEventListener('devicemotion', this.motionHandler, true);
+      this.motionHandler = null;
+    }
+    this.isPedometerActive = false;
+    const finalSteps = this.sessionSteps;
+    this.sessionSteps = 0;
+    return finalSteps;
+  }
+
+  // =========================================================================
+  // ایمپورت فایل گزارش Google Fit / Health Connect / ساعت هوشمند (JSON / CSV)
+  // =========================================================================
+
+  async importHealthFile(fileContent, fileName) {
+    const isJson = fileName.toLowerCase().endsWith('.json');
+    const isCsv = fileName.toLowerCase().endsWith('.csv');
+
+    if (isJson) {
+      return this.parseJsonHealthData(fileContent);
+    } else if (isCsv) {
+      return this.parseCsvHealthData(fileContent);
+    } else {
+      throw new Error('لطفاً یک فایل خروجی با فرمت JSON یا CSV انتخاب کنید.');
+    }
+  }
+
+  parseJsonHealthData(content) {
+    try {
+      const data = JSON.parse(content);
+      const results = [];
+
+      // اگر فرمت Google Takeout Daily Activity باشد
+      if (Array.isArray(data)) {
+        data.forEach(item => {
+          const date = item.date || (item.startTime ? item.startTime.split('T')[0] : null);
+          const steps = parseInt(item.steps || item.step_count || 0);
+          const calories = parseInt(item.calories || item.calories_burned || 0);
+          if (date && (steps > 0 || calories > 0)) {
+            results.push({
+              date,
+              type: 'steps',
+              name: `همگام‌سازی از گزارش سلامت (${steps.toLocaleString('fa-IR')} گام)`,
+              durationMin: parseInt(item.active_minutes || 30),
+              caloriesBurned: calories || this.calculateStepCalories(steps),
+              steps
+            });
           }
         });
-      });
+      } else if (data.Data && Array.isArray(data.Data)) {
+        // فرمت Samsung Health یا ساعت‌های هوشمند
+        data.Data.forEach(item => {
+          const date = item.date || item.day;
+          const steps = parseInt(item.step_count || item.steps || 0);
+          const calories = parseInt(item.calorie || 0);
+          if (date && (steps > 0 || calories > 0)) {
+            results.push({
+              date,
+              type: 'steps',
+              name: 'گام‌ها و فعالیت ساعت هوشمند',
+              durationMin: 30,
+              caloriesBurned: calories || this.calculateStepCalories(steps),
+              steps
+            });
+          }
+        });
+      }
+
+      if (results.length === 0) {
+        throw new Error('داده‌های گام یا کالری معتبری در این فایل JSON یافت نشد.');
+      }
+
+      return results;
+    } catch (e) {
+      throw new Error('خطا در خواندن فایل JSON: ' + e.message);
+    }
+  }
+
+  parseCsvHealthData(content) {
+    const lines = content.split('\n');
+    if (lines.length < 2) throw new Error('فایل CSV خالی است.');
+
+    const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+    const dateIdx = headers.findIndex(h => h.includes('date') || h.includes('day') || h.includes('time'));
+    const stepIdx = headers.findIndex(h => h.includes('step') || h.includes('count'));
+    const calIdx = headers.findIndex(h => h.includes('cal') || h.includes('energy'));
+
+    if (dateIdx === -1 || stepIdx === -1) {
+      throw new Error('ستون‌های تاریخ و گام در فایل CSV یافت نشدند.');
     }
 
-    return {
-      date: dateStr,
-      steps,
-      calories,
-      activeMinutes
-    };
+    const results = [];
+    for (let i = 1; i < lines.length; i++) {
+      const row = lines[i].split(',').map(r => r.trim());
+      if (row.length <= dateIdx || row.length <= stepIdx) continue;
+
+      let date = row[dateIdx].split(' ')[0].split('T')[0];
+      const steps = parseInt(row[stepIdx]) || 0;
+      const calories = calIdx !== -1 ? (parseInt(row[calIdx]) || 0) : this.calculateStepCalories(steps);
+
+      if (date && steps > 0) {
+        results.push({
+          date,
+          type: 'steps',
+          name: `گزارش سلامت CSV (${steps.toLocaleString('fa-IR')} گام)`,
+          durationMin: Math.round(steps / 100),
+          caloriesBurned: calories,
+          steps
+        });
+      }
+    }
+
+    if (results.length === 0) {
+      throw new Error('هیچ داده ورزشی معتبری در این فایل CSV پیدا نشد.');
+    }
+
+    return results;
   }
 }
 
-export const googleFit = new GoogleFitManager();
+export const healthActivity = new HealthActivityManager();
+// جهت سازگاری
+export const googleFit = healthActivity;
