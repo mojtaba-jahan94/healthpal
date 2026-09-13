@@ -1,6 +1,6 @@
 /**
- * HealthPal - Main Application Logic
- * مدیریت کامل حالت برنامه، دیتابیس لوکال، PWA و رویدادها
+ * HealthPal - Main Application Logic (Revamped 2.0)
+ * سیستم پیشرفته انتخاب سهم و گرم غذا، گیج شعاعی کالری و دیتابیس لوکال
  */
 
 import { db } from './db.js';
@@ -21,7 +21,13 @@ class HealthApp {
     };
     this.currentExercises = [];
     this.currentWater = { glasses: 0, ml: 0 };
-    this.selectedFoodForModal = null;
+    
+    // Portion Picker State
+    this.pickerFood = null;
+    this.pickerMode = 'serving'; // 'serving' | 'grams'
+    this.pickerAmount = 1;
+    this.pickerMeal = 'breakfast';
+
     this.targetMealForModal = 'breakfast';
     this.deferredPrompt = null;
   }
@@ -31,6 +37,7 @@ class HealthApp {
     await this.loadProfile();
     await this.loadCustomFoods();
     this.bindEvents();
+    this.bindPortionPickerEvents();
     await this.loadDateData(this.currentDate);
     await this.loadWeightHistory();
     await googleFit.init();
@@ -150,7 +157,6 @@ class HealthApp {
       return;
     }
 
-    // فرمول Mifflin-St Jeor
     let bmr = (10 * weight) + (6.25 * height) - (5 * age);
     bmr += (gender === 'male' ? 5 : -161);
 
@@ -166,19 +172,18 @@ class HealthApp {
     let tdee = Math.round(bmr * multiplier);
 
     if (goal === 'lose') {
-      tdee -= 450; // کسر ۴۵۰ کالری برای کاهش وزن حدود نیم کیلو در هفته
+      tdee -= 450;
       tdee = Math.max(gender === 'male' ? 1500 : 1200, tdee);
     } else if (goal === 'gain') {
-      tdee += 400; // افزایش ۴۰۰ کالری برای عضله‌سازی
+      tdee += 400;
     }
 
     document.getElementById('prof-calorie-target').value = tdee;
     
-    // پیشنهاد هدف آب بر اساس وزن (۳۵ میلی‌لیتر به ازای هر کیلوگرم)
     const suggestedWater = Math.round((weight * 35) / 100) * 100;
     document.getElementById('prof-water-target').value = Math.max(2000, suggestedWater);
 
-    this.showToast(`کالری هدف هوشمند محاسبه شد: ${tdee} کیلوکالری`, 'success');
+    this.showToast(`کالری هدف محاسبه شد: ${tdee} کیلوکالری`, 'success');
   }
 
   updateDashboardHeader() {
@@ -204,35 +209,36 @@ class HealthApp {
     if (!container) return;
 
     if (foods.length === 0) {
-      container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">غذایی یافت نشد.</div>';
+      container.innerHTML = '<div style="text-align: center; color: var(--text-sub); padding: 24px;">غذایی یافت نشد.</div>';
       return;
     }
 
     container.innerHTML = foods.map(food => `
       <div class="food-result-card" data-id="${food.id}">
         <div>
-          <div style="font-weight: 700; color: var(--text-primary);">${food.name} ${food.isCustom ? '<span style="font-size:0.7rem; color:var(--accent-primary); border:1px solid var(--accent-primary); padding:1px 4px; border-radius:4px;">سفارشی</span>' : ''}</div>
-          <div style="font-size: 0.78rem; color: var(--text-secondary);">
-            ${food.unit} • کربوهیدرات: ${food.carbs}g • پروتئین: ${food.protein}g • چربی: ${food.fat}g
+          <div style="font-weight: 800; color: #fff; font-size: 0.96rem;">
+            ${food.name} 
+            ${food.isCustom ? '<span style="font-size:0.68rem; color:var(--emerald-light); border:1px solid var(--emerald); padding:1px 5px; border-radius:4px; margin-right:4px;">سفارشی</span>' : ''}
+          </div>
+          <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 2px;">
+            ${food.unit} • C:${food.carbs}g • P:${food.protein}g • F:${food.fat}g
           </div>
         </div>
-        <div style="text-align: left;">
-          <div style="font-weight: 800; color: var(--accent-primary); font-size: 0.95rem;">${food.calories} kcal</div>
-          <button class="btn btn-secondary btn-diary-add-to-meal" data-id="${food.id}" style="padding: 4px 8px; font-size: 0.72rem; margin-top: 4px;">
-            + ثبت وعده
+        <div style="text-align: left; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+          <div style="font-weight: 900; color: var(--emerald-light); font-size: 1rem;">${food.calories} <small style="font-size:0.7rem;">kcal</small></div>
+          <button class="btn btn-secondary btn-diary-pick-portion" data-id="${food.id}" style="padding: 4px 10px; font-size: 0.74rem;">
+            + تعیین مقدار
           </button>
         </div>
       </div>
     `).join('');
 
-    // اتصال دکمه‌های ثبت سریع
-    container.querySelectorAll('.btn-diary-add-to-meal').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = btn.getAttribute('data-id');
+    container.querySelectorAll('.food-result-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const id = card.getAttribute('data-id');
         const food = this.allFoods.find(f => f.id == id);
         if (food) {
-          this.openAddFoodModal('lunch', food);
+          this.openPortionPicker(food, 'lunch');
         }
       });
     });
@@ -242,7 +248,6 @@ class HealthApp {
   async loadDateData(dateStr) {
     this.currentDate = dateStr;
     
-    // آپدیت لیبل تاریخ
     const isToday = dateStr === this.getTodayDateString();
     document.getElementById('label-current-date').textContent = this.formatPersianDate(dateStr);
     document.getElementById('badge-is-today').style.display = isToday ? 'inline-block' : 'none';
@@ -265,7 +270,7 @@ class HealthApp {
     this.currentWater = await db.getWaterLog(dateStr);
     this.renderWaterSection();
 
-    // ۴. محاسبه و نمایش کارت بالانس کالری و ماکروها
+    // ۴. به‌روزرسانی گیج شعاعی و ماکروها
     this.updateDailyCalculations();
   }
 
@@ -278,25 +283,30 @@ class HealthApp {
       const calBadge = document.getElementById(`meal-cal-${meal}`);
 
       const totalMealCals = items.reduce((sum, item) => sum + item.calories, 0);
-      calBadge.textContent = `${totalMealCals} کالری`;
+      calBadge.textContent = `${totalMealCals} kcal`;
 
       if (items.length === 0) {
         listContainer.innerHTML = `
-          <div style="padding: 10px 0; font-size: 0.8rem; color: var(--text-muted); text-align: center;">
+          <div style="padding: 12px 0; font-size: 0.8rem; color: var(--text-sub); text-align: center;">
             هنوز غذایی در این وعده ثبت نشده است.
           </div>
         `;
       } else {
         listContainer.innerHTML = items.map(item => `
-          <div class="food-log-item">
-            <div class="food-item-meta">
-              <span class="food-item-name">${item.name}</span>
-              <span class="food-item-detail">${item.amount} ${item.unit} • (C:${item.carbs}g P:${item.protein}g F:${item.fat}g)</span>
+          <div class="meal-food-row">
+            <div class="food-row-info">
+              <span class="food-row-name">${item.name}</span>
+              <div class="food-row-chips">
+                <span class="chip-tag">${item.amountDesc || `${item.amount} ${item.unit}`}</span>
+                <span class="chip-tag c">C:${item.carbs}g</span>
+                <span class="chip-tag p">P:${item.protein}g</span>
+                <span class="chip-tag f">F:${item.fat}g</span>
+              </div>
             </div>
-            <div class="food-item-right">
-              <span class="food-item-cal">${item.calories} kcal</span>
-              <button class="btn-delete-item btn-delete-food" data-id="${item.id}" title="حذف">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="food-row-actions">
+              <span class="food-row-cal">${item.calories} kcal</span>
+              <button class="btn-del-food" data-id="${item.id}" title="حذف">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"></polyline>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                 </svg>
@@ -305,8 +315,9 @@ class HealthApp {
           </div>
         `).join('');
 
-        listContainer.querySelectorAll('.btn-delete-food').forEach(btn => {
-          btn.addEventListener('click', async () => {
+        listContainer.querySelectorAll('.btn-del-food').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
             const id = btn.getAttribute('data-id');
             await db.deleteFoodLog(id);
             this.showToast('آیتم غذایی حذف شد');
@@ -322,7 +333,6 @@ class HealthApp {
     const totalBurned = this.currentExercises.reduce((sum, ex) => sum + ex.caloriesBurned, 0);
     const totalSteps = this.currentExercises.reduce((sum, ex) => sum + (ex.steps || 0), 0);
 
-    // به‌روزرسانی کارت داشبورد
     document.getElementById('dash-steps-count').textContent = totalSteps.toLocaleString('fa-IR');
     document.getElementById('dash-steps-cals').textContent = totalBurned;
 
@@ -330,23 +340,23 @@ class HealthApp {
 
     if (this.currentExercises.length === 0) {
       container.innerHTML = `
-        <div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 0.85rem;">
-          امروز ورزشی ثبت نشده است. برای ثبت گام‌ها یا تمرین دکمه زیر را لمس کنید.
+        <div style="text-align: center; color: var(--text-sub); padding: 24px; font-size: 0.85rem;">
+          امروز ورزشی ثبت نشده است.
         </div>
       `;
       return;
     }
 
     container.innerHTML = this.currentExercises.map(ex => `
-      <div class="food-log-item">
-        <div class="food-item-meta">
-          <span class="food-item-name">${ex.name}</span>
-          <span class="food-item-detail">${ex.durationMin} دقیقه ${ex.steps ? `• ${ex.steps.toLocaleString('fa-IR')} گام` : ''}</span>
+      <div class="meal-food-row">
+        <div class="food-row-info">
+          <span class="food-row-name">${ex.name}</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">${ex.durationMin} دقیقه ${ex.steps ? `• ${ex.steps.toLocaleString('fa-IR')} گام` : ''}</span>
         </div>
-        <div class="food-item-right">
-          <span class="food-item-cal" style="color: var(--accent-exercise);">${ex.caloriesBurned} kcal</span>
-          <button class="btn-delete-item btn-delete-exercise" data-id="${ex.id}" title="حذف">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="food-row-actions">
+          <span class="food-row-cal" style="color: var(--exercise);">${ex.caloriesBurned} kcal</span>
+          <button class="btn-del-food btn-del-ex" data-id="${ex.id}" title="حذف">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
             </svg>
@@ -355,7 +365,7 @@ class HealthApp {
       </div>
     `).join('');
 
-    container.querySelectorAll('.btn-delete-exercise').forEach(btn => {
+    container.querySelectorAll('.btn-del-ex').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
         await db.deleteExerciseLog(id);
@@ -378,14 +388,13 @@ class HealthApp {
     let cupsHtml = '';
     for (let i = 1; i <= totalGlasses; i++) {
       const isFilled = i <= currentGlasses;
-      cupsHtml += `<div class="water-cup ${isFilled ? 'filled' : ''}" data-index="${i}" title="${i * 250} میلی‌لیتر"></div>`;
+      cupsHtml += `<div class="water-cup ${isFilled ? 'filled' : ''}" data-index="${i}" title="${i * 250} ml"></div>`;
     }
     container.innerHTML = cupsHtml;
 
     container.querySelectorAll('.water-cup').forEach(cup => {
       cup.addEventListener('click', async () => {
         const idx = Number(cup.getAttribute('data-index'));
-        // اگر روی آخرین لیوان پر کلیک کند، یکی کم می‌شود؛ در غیر اینصورت تا آن لیوان پر می‌شود
         let newGlasses = idx;
         if (idx === currentGlasses) {
           newGlasses = idx - 1;
@@ -407,11 +416,10 @@ class HealthApp {
     this.renderWaterSection();
   }
 
-  // --- Daily Calorie Equation & Macros ---
+  // --- Daily Calorie Equation & Radial Ring Calculation ---
   updateDailyCalculations() {
     const targetCal = this.profile?.dailyCalorieTarget || 2000;
     
-    // محاسبه مجموع کالری خورده شده
     let totalFoodCal = 0;
     let totalCarbs = 0;
     let totalProtein = 0;
@@ -426,37 +434,62 @@ class HealthApp {
       });
     });
 
-    // کالری سوزانده شده در ورزش
     const totalExerciseCal = this.currentExercises.reduce((sum, ex) => sum + (ex.caloriesBurned || 0), 0);
-    
-    // کالری باقی‌مانده (معادله MyFitnessPal)
     const remainingCal = targetCal - totalFoodCal + totalExerciseCal;
 
-    // آپدیت مقادیر در رابط کاربری
+    // آپدیت مقادیر گیج
     document.getElementById('dash-cal-target').textContent = targetCal;
     document.getElementById('dash-cal-food').textContent = totalFoodCal;
     document.getElementById('dash-cal-exercise').textContent = totalExerciseCal;
     
     const remEl = document.getElementById('dash-cal-remaining');
     remEl.textContent = remainingCal;
-    remEl.style.color = remainingCal >= 0 ? 'var(--accent-primary)' : 'var(--accent-protein)';
 
-    // اهداف ماکروها بر اساس درصد تنظیم شده در پروفایل
+    const statusEl = document.getElementById('dash-status-text');
+    const circle = document.getElementById('radial-progress-circle');
+
+    // محیط دایره = 2 * PI * 48 ≈ 301.6
+    const circumference = 301.6;
+    const progressPercent = Math.min(100, Math.max(0, Math.round((totalFoodCal / targetCal) * 100)));
+    const offset = circumference - (circumference * (progressPercent / 100));
+    circle.style.strokeDashoffset = offset;
+
+    if (remainingCal < 0) {
+      remEl.style.color = 'var(--protein)';
+      circle.style.stroke = 'var(--protein)';
+      statusEl.textContent = 'بیش از حد مجاز';
+      statusEl.style.color = 'var(--protein)';
+    } else {
+      remEl.style.color = '#fff';
+      circle.style.stroke = 'var(--emerald)';
+      statusEl.textContent = 'در مسیر هدف';
+      statusEl.style.color = 'var(--emerald-light)';
+    }
+
+    // اهداف ماکروها
     const carbsTargetGrams = Math.round((targetCal * ((this.profile?.carbsRatio || 50) / 100)) / 4);
     const proteinTargetGrams = Math.round((targetCal * ((this.profile?.proteinRatio || 25) / 100)) / 4);
     const fatTargetGrams = Math.round((targetCal * ((this.profile?.fatRatio || 25) / 100)) / 9);
 
+    // درصد کپسول‌ها
+    const cPercent = Math.min(100, Math.round((totalCarbs / carbsTargetGrams) * 100)) || 0;
+    const pPercent = Math.min(100, Math.round((totalProtein / proteinTargetGrams) * 100)) || 0;
+    const fPercent = Math.min(100, Math.round((totalFat / fatTargetGrams) * 100)) || 0;
+
     document.getElementById('dash-cur-carbs').textContent = Math.round(totalCarbs);
     document.getElementById('dash-target-carbs').textContent = carbsTargetGrams;
-    document.getElementById('dash-fill-carbs').style.width = `${Math.min(100, (totalCarbs / carbsTargetGrams) * 100)}%`;
+    document.getElementById('dash-fill-carbs').style.width = `${cPercent}%`;
+    document.getElementById('macro-percent-carbs').textContent = `${cPercent}%`;
 
     document.getElementById('dash-cur-protein').textContent = Math.round(totalProtein);
     document.getElementById('dash-target-protein').textContent = proteinTargetGrams;
-    document.getElementById('dash-fill-protein').style.width = `${Math.min(100, (totalProtein / proteinTargetGrams) * 100)}%`;
+    document.getElementById('dash-fill-protein').style.width = `${pPercent}%`;
+    document.getElementById('macro-percent-protein').textContent = `${pPercent}%`;
 
     document.getElementById('dash-cur-fat').textContent = Math.round(totalFat);
     document.getElementById('dash-target-fat').textContent = fatTargetGrams;
-    document.getElementById('dash-fill-fat').style.width = `${Math.min(100, (totalFat / fatTargetGrams) * 100)}%`;
+    document.getElementById('dash-fill-fat').style.width = `${fPercent}%`;
+    document.getElementById('macro-percent-fat').textContent = `${fPercent}%`;
   }
 
   // --- Weight History & Chart Rendering ---
@@ -465,16 +498,16 @@ class HealthApp {
     const listContainer = document.getElementById('weight-history-list');
     
     if (logs.length === 0) {
-      listContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 10px;">هنوز وزنی ثبت نشده است.</div>';
+      listContainer.innerHTML = '<div style="text-align: center; color: var(--text-sub); padding: 12px;">هنوز وزنی ثبت نشده است.</div>';
     } else {
       listContainer.innerHTML = logs.slice().reverse().map(item => `
-        <div class="food-log-item">
+        <div class="meal-food-row">
           <div>
-            <span style="font-weight: 700; color: var(--text-primary);">${item.weight} کیلوگرم</span>
-            <div style="font-size: 0.75rem; color: var(--text-secondary);">${this.formatPersianDate(item.date)} ${item.notes ? `• ${item.notes}` : ''}</div>
+            <span style="font-weight: 800; color: #fff;">${item.weight} kg</span>
+            <div style="font-size: 0.74rem; color: var(--text-muted);">${this.formatPersianDate(item.date)} ${item.notes ? `• ${item.notes}` : ''}</div>
           </div>
-          <button class="btn-delete-item btn-delete-weight" data-id="${item.id}" title="حذف">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <button class="btn-del-food btn-del-weight" data-id="${item.id}" title="حذف">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
             </svg>
@@ -482,7 +515,7 @@ class HealthApp {
         </div>
       `).join('');
 
-      listContainer.querySelectorAll('.btn-delete-weight').forEach(btn => {
+      listContainer.querySelectorAll('.btn-del-weight').forEach(btn => {
         btn.addEventListener('click', async () => {
           const id = btn.getAttribute('data-id');
           await db.deleteWeightLog(id);
@@ -519,40 +552,247 @@ class HealthApp {
     const getX = (index) => padding + (index / (logs.length - 1)) * (width - 2 * padding);
     const getY = (val) => height - padding - ((val - minW) / (maxW - minW)) * (height - 2 * padding);
 
-    // ساخت مسیر خط
     const points = logs.map((l, i) => `${getX(i)},${getY(l.weight)}`).join(' ');
 
     let svgContent = `
       <defs>
         <linearGradient id="chartGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#10b981" stop-opacity="0.3"/>
+          <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
           <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
         </linearGradient>
       </defs>
       
-      <!-- Grid lines -->
       <line x1="${padding}" y1="${getY(minW)}" x2="${width - padding}" y2="${getY(minW)}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4"/>
       <line x1="${padding}" y1="${getY((minW + maxW)/2)}" x2="${width - padding}" y2="${getY((minW + maxW)/2)}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4"/>
       <line x1="${padding}" y1="${getY(maxW)}" x2="${width - padding}" y2="${getY(maxW)}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4"/>
       
-      <!-- Area under line -->
       <polygon points="${getX(0)},${height - padding} ${points} ${getX(logs.length - 1)},${height - padding}" fill="url(#chartGrad)" />
-
-      <!-- Main Line -->
-      <polyline fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${points}"/>
+      <polyline fill="none" stroke="#10b981" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" points="${points}"/>
     `;
 
-    // اضافه کردن نقاط و برچسب‌ها
     logs.forEach((l, i) => {
       const x = getX(i);
       const y = getY(l.weight);
       svgContent += `
-        <circle cx="${x}" cy="${y}" r="4" fill="#10b981" stroke="#0f172a" stroke-width="2"/>
-        <text x="${x}" y="${y - 8}" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="bold">${l.weight}</text>
+        <circle cx="${x}" cy="${y}" r="4.5" fill="#10b981" stroke="#080c15" stroke-width="2"/>
+        <text x="${x}" y="${y - 8}" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">${l.weight}</text>
       `;
     });
 
     svg.innerHTML = svgContent;
+  }
+
+  // =========================================================================
+  // PORTION & AMOUNT PICKER MODAL (Requirement #2 Solution)
+  // =========================================================================
+
+  openPortionPicker(food, defaultMeal = 'breakfast') {
+    this.pickerFood = food;
+    this.pickerMeal = defaultMeal;
+    this.pickerMode = 'serving';
+    this.pickerAmount = 1;
+
+    // تنظیم اطلاعات غذا
+    document.getElementById('picker-food-title').textContent = food.name;
+    document.getElementById('picker-food-meta').textContent = `${food.category} • سهم پایه: ${food.unit} (${food.unitWeight || 100} گرم)`;
+
+    // فعال‌سازی تب سهم
+    document.getElementById('picker-tab-serving').classList.add('active');
+    document.getElementById('picker-tab-grams').classList.remove('active');
+
+    // مقدار اولیه
+    document.getElementById('picker-amount-input').value = 1;
+    document.getElementById('picker-amount-unit-label').textContent = 'سهم';
+
+    // انتخاب دکمه وعده غذایی
+    document.querySelectorAll('.meal-pill-btn').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('data-meal') === defaultMeal);
+    });
+
+    this.renderQuickChips();
+    this.recalculatePickerNutrients();
+    this.openModal('modal-portion-picker');
+  }
+
+  renderQuickChips() {
+    const container = document.getElementById('picker-quick-chips');
+    if (!container) return;
+
+    if (this.pickerMode === 'serving') {
+      const chips = [0.5, 1, 1.5, 2, 3];
+      container.innerHTML = chips.map(c => `
+        <button class="quick-chip-btn ${this.pickerAmount === c ? 'active' : ''}" data-val="${c}">
+          ${c} سهم
+        </button>
+      `).join('');
+    } else {
+      const chips = [50, 100, 150, 200, 250, 300];
+      container.innerHTML = chips.map(g => `
+        <button class="quick-chip-btn ${this.pickerAmount === g ? 'active' : ''}" data-val="${g}">
+          ${g} گرم
+        </button>
+      `).join('');
+    }
+
+    container.querySelectorAll('.quick-chip-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = parseFloat(btn.getAttribute('data-val'));
+        this.pickerAmount = val;
+        document.getElementById('picker-amount-input').value = val;
+        this.renderQuickChips();
+        this.recalculatePickerNutrients();
+      });
+    });
+  }
+
+  recalculatePickerNutrients() {
+    if (!this.pickerFood) return;
+    const f = this.pickerFood;
+    const baseWeight = f.unitWeight || 100;
+
+    let multiplier = 1;
+    if (this.pickerMode === 'serving') {
+      multiplier = this.pickerAmount;
+    } else {
+      multiplier = this.pickerAmount / baseWeight;
+    }
+
+    const computedCals = Math.round(f.calories * multiplier);
+    const computedCarbs = Math.round(f.carbs * multiplier * 10) / 10;
+    const computedProtein = Math.round(f.protein * multiplier * 10) / 10;
+    const computedFat = Math.round(f.fat * multiplier * 10) / 10;
+
+    document.getElementById('picker-calc-cal').textContent = `${computedCals} kcal`;
+    document.getElementById('picker-calc-carbs').textContent = `${computedCarbs}g`;
+    document.getElementById('picker-calc-protein').textContent = `${computedProtein}g`;
+    document.getElementById('picker-calc-fat').textContent = `${computedFat}g`;
+  }
+
+  bindPortionPickerEvents() {
+    // سوئیچ بین حالت سهم و گرم
+    const tabServing = document.getElementById('picker-tab-serving');
+    const tabGrams = document.getElementById('picker-tab-grams');
+    const inputVal = document.getElementById('picker-amount-input');
+    const unitLabel = document.getElementById('picker-amount-unit-label');
+
+    tabServing.addEventListener('click', () => {
+      this.pickerMode = 'serving';
+      tabServing.classList.add('active');
+      tabGrams.classList.remove('active');
+      this.pickerAmount = 1;
+      inputVal.value = 1;
+      inputVal.step = 0.5;
+      unitLabel.textContent = 'سهم';
+      this.renderQuickChips();
+      this.recalculatePickerNutrients();
+    });
+
+    tabGrams.addEventListener('click', () => {
+      this.pickerMode = 'grams';
+      tabGrams.classList.add('active');
+      tabServing.classList.remove('active');
+      const baseWeight = this.pickerFood?.unitWeight || 100;
+      this.pickerAmount = baseWeight;
+      inputVal.value = baseWeight;
+      inputVal.step = 25;
+      unitLabel.textContent = 'گرم';
+      this.renderQuickChips();
+      this.recalculatePickerNutrients();
+    });
+
+    // استپر مثبت و منفی
+    document.getElementById('btn-stepper-minus').addEventListener('click', () => {
+      if (this.pickerMode === 'serving') {
+        this.pickerAmount = Math.max(0.5, Math.round((this.pickerAmount - 0.5) * 10) / 10);
+      } else {
+        this.pickerAmount = Math.max(10, this.pickerAmount - 25);
+      }
+      inputVal.value = this.pickerAmount;
+      this.renderQuickChips();
+      this.recalculatePickerNutrients();
+    });
+
+    document.getElementById('btn-stepper-plus').addEventListener('click', () => {
+      if (this.pickerMode === 'serving') {
+        this.pickerAmount = Math.round((this.pickerAmount + 0.5) * 10) / 10;
+      } else {
+        this.pickerAmount = this.pickerAmount + 25;
+      }
+      inputVal.value = this.pickerAmount;
+      this.renderQuickChips();
+      this.recalculatePickerNutrients();
+    });
+
+    // تغییر مستقیم در اینپوت
+    inputVal.addEventListener('input', () => {
+      const val = parseFloat(inputVal.value) || 1;
+      this.pickerAmount = val;
+      this.recalculatePickerNutrients();
+    });
+
+    // انتخاب وعده غذایی
+    document.querySelectorAll('.meal-pill-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.meal-pill-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.pickerMeal = btn.getAttribute('data-meal');
+      });
+    });
+
+    // دکمه تایید نهایی و ثبت در دیتابیس
+    document.getElementById('btn-picker-confirm').addEventListener('click', async () => {
+      if (!this.pickerFood) return;
+      const f = this.pickerFood;
+      const baseWeight = f.unitWeight || 100;
+
+      let multiplier = 1;
+      let amountDescription = '';
+
+      if (this.pickerMode === 'serving') {
+        multiplier = this.pickerAmount;
+        amountDescription = `${this.pickerAmount} سهم (${f.unit})`;
+      } else {
+        multiplier = this.pickerAmount / baseWeight;
+        amountDescription = `${this.pickerAmount} گرم`;
+      }
+
+      // اگر غذا از هوش مصنوعی آمده بود، در بانک غذاهای سفارشی ذخیره شود
+      if (f.isAiGenerated && !f.id) {
+        const customId = await db.addCustomFood({
+          name: f.name,
+          category: f.category,
+          unit: f.unit,
+          unitWeight: f.unitWeight || 100,
+          calories: f.calories,
+          protein: f.protein,
+          carbs: f.carbs,
+          fat: f.fat,
+          description: f.description
+        });
+        f.id = customId;
+        await this.loadCustomFoods();
+      }
+
+      const logItem = {
+        date: this.currentDate,
+        mealType: this.pickerMeal,
+        foodId: f.id,
+        name: f.name,
+        amount: this.pickerAmount,
+        unit: this.pickerMode === 'serving' ? f.unit : 'گرم',
+        amountDesc: amountDescription,
+        calories: Math.round(f.calories * multiplier),
+        carbs: Math.round(f.carbs * multiplier * 10) / 10,
+        protein: Math.round(f.protein * multiplier * 10) / 10,
+        fat: Math.round(f.fat * multiplier * 10) / 10
+      };
+
+      await db.addFoodLog(logItem);
+      this.closeModal('modal-portion-picker');
+      this.closeModal('modal-add-food');
+      this.showToast(`✨ ${f.name} (${amountDescription}) ثبت شد`);
+      await this.loadDateData(this.currentDate);
+    });
   }
 
   // --- Modals Management ---
@@ -566,7 +806,7 @@ class HealthApp {
     if (modal) modal.classList.remove('open');
   }
 
-  openAddFoodModal(mealType = 'breakfast', preselectedFood = null) {
+  openAddFoodModal(mealType = 'breakfast') {
     this.targetMealForModal = mealType;
     const mealNamesFa = {
       breakfast: 'صبحانه',
@@ -576,17 +816,8 @@ class HealthApp {
     };
     document.getElementById('modal-meal-name-label').textContent = mealNamesFa[mealType] || 'وعده';
     
-    // رندر کتگوری‌های فیلتر در مدال
     this.renderModalCategories();
     this.renderModalFoodResults(this.allFoods);
-
-    if (preselectedFood) {
-      this.selectFoodForPortion(preselectedFood);
-    } else {
-      document.getElementById('modal-portion-box').style.display = 'none';
-      this.selectedFoodForModal = null;
-    }
-
     this.openModal('modal-add-food');
   }
 
@@ -616,58 +847,29 @@ class HealthApp {
     if (!container) return;
 
     if (foods.length === 0) {
-      container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 16px;">غذایی یافت نشد.</div>';
+      container.innerHTML = '<div style="text-align: center; color: var(--text-sub); padding: 18px;">غذایی در این دسته یافت نشد.</div>';
       return;
     }
 
-    container.innerHTML = foods.slice(0, 30).map(f => `
+    container.innerHTML = foods.slice(0, 35).map(f => `
       <div class="food-result-card modal-food-item" data-id="${f.id}">
         <div>
-          <div style="font-weight: 700;">${f.name}</div>
-          <div style="font-size: 0.75rem; color: var(--text-secondary);">${f.unit} • ${f.calories} kcal</div>
+          <div style="font-weight: 800; color: #fff;">${f.name}</div>
+          <div style="font-size: 0.76rem; color: var(--text-muted);">${f.unit} • ${f.calories} kcal</div>
         </div>
-        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;">انتخاب</button>
+        <button class="btn btn-secondary" style="padding: 5px 12px; font-size: 0.78rem;">تعیین مقدار</button>
       </div>
     `).join('');
 
     container.querySelectorAll('.modal-food-item').forEach(card => {
       card.addEventListener('click', () => {
-        container.querySelectorAll('.modal-food-item').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
         const id = card.getAttribute('data-id');
         const food = this.allFoods.find(f => f.id == id);
-        if (food) this.selectFoodForPortion(food);
+        if (food) {
+          this.openPortionPicker(food, this.targetMealForModal);
+        }
       });
     });
-  }
-
-  selectFoodForPortion(food) {
-    this.selectedFoodForModal = food;
-    const box = document.getElementById('modal-portion-box');
-    box.style.display = 'block';
-
-    document.getElementById('selected-food-title').textContent = food.name;
-    document.getElementById('selected-food-unit').value = food.unit;
-    document.getElementById('selected-food-amount').value = 1;
-
-    this.recalcModalPortion();
-    box.scrollIntoView({ behavior: 'smooth' });
-  }
-
-  recalcModalPortion() {
-    if (!this.selectedFoodForModal) return;
-    const amount = parseFloat(document.getElementById('selected-food-amount').value) || 1;
-    const f = this.selectedFoodForModal;
-
-    const totalCals = Math.round(f.calories * amount);
-    const totalCarbs = (f.carbs * amount).toFixed(1);
-    const totalProtein = (f.protein * amount).toFixed(1);
-    const totalFat = (f.fat * amount).toFixed(1);
-
-    document.getElementById('selected-food-cal-badge').textContent = `${totalCals} کالری`;
-    document.getElementById('portion-carbs').textContent = totalCarbs;
-    document.getElementById('portion-protein').textContent = totalProtein;
-    document.getElementById('portion-fat').textContent = totalFat;
   }
 
   // --- Toast Notifications ---
@@ -682,10 +884,10 @@ class HealthApp {
     setTimeout(() => {
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, 3200);
   }
 
-  // --- Event Bindings ---
+  // --- Main Event Bindings ---
   bindEvents() {
     // Navigation Tabs
     document.querySelectorAll('.nav-item').forEach(btn => {
@@ -733,7 +935,7 @@ class HealthApp {
     });
 
     // Meal header '+' buttons
-    document.querySelectorAll('.btn-add-food-mini').forEach(btn => {
+    document.querySelectorAll('.btn-add-meal-item').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const meal = btn.getAttribute('data-meal');
@@ -754,36 +956,6 @@ class HealthApp {
       overlay.addEventListener('click', (e) => {
         if (e.target === overlay) overlay.classList.remove('open');
       });
-    });
-
-    // Modal portion amount change
-    document.getElementById('selected-food-amount').addEventListener('input', () => {
-      this.recalcModalPortion();
-    });
-
-    // Confirm add food to meal
-    document.getElementById('btn-confirm-add-food').addEventListener('click', async () => {
-      if (!this.selectedFoodForModal) return;
-      const amount = parseFloat(document.getElementById('selected-food-amount').value) || 1;
-      const f = this.selectedFoodForModal;
-
-      const logItem = {
-        date: this.currentDate,
-        mealType: this.targetMealForModal,
-        foodId: f.id,
-        name: f.name,
-        amount,
-        unit: f.unit,
-        calories: Math.round(f.calories * amount),
-        carbs: Math.round(f.carbs * amount * 10) / 10,
-        protein: Math.round(f.protein * amount * 10) / 10,
-        fat: Math.round(f.fat * amount * 10) / 10
-      };
-
-      await db.addFoodLog(logItem);
-      this.closeModal('modal-add-food');
-      this.showToast(`${f.name} به وعده اضافه شد`);
-      await this.loadDateData(this.currentDate);
     });
 
     // Modal food search live
@@ -815,6 +987,7 @@ class HealthApp {
         name: document.getElementById('new-food-name').value.trim(),
         category: document.getElementById('new-food-cat').value,
         unit: document.getElementById('new-food-unit').value.trim(),
+        unitWeight: Number(document.getElementById('new-food-unit-weight').value) || 100,
         calories: Number(document.getElementById('new-food-calories').value),
         protein: Number(document.getElementById('new-food-protein').value),
         carbs: Number(document.getElementById('new-food-carbs').value),
@@ -824,7 +997,7 @@ class HealthApp {
       await db.addCustomFood(newFood);
       this.closeModal('modal-create-food');
       document.getElementById('form-create-food').reset();
-      this.showToast('غذای سفارشی با موفقیت به بانک اطلاعاتی اضافه شد');
+      this.showToast('غذای جدید در بانک اطلاعاتی ذخیره شد');
       await this.loadCustomFoods();
     });
 
@@ -869,7 +1042,6 @@ class HealthApp {
         notes
       });
 
-      // به‌روزرسانی وزن جاری در پروفایل
       if (this.profile) {
         this.profile.weight = weightVal;
         await db.saveProfile(this.profile);
@@ -878,7 +1050,7 @@ class HealthApp {
 
       this.closeModal('modal-add-weight');
       document.getElementById('form-add-weight').reset();
-      this.showToast('رکورد وزن با موفقیت ثبت شد');
+      this.showToast('وزن با موفقیت ثبت شد');
       await this.loadWeightHistory();
     });
 
@@ -910,7 +1082,7 @@ class HealthApp {
       this.updateDashboardHeader();
       this.updateDailyCalculations();
       this.renderWaterSection();
-      this.showToast('اطلاعات پروفایل با موفقیت ذخیره شد');
+      this.showToast('پروفایل با موفقیت ذخیره شد');
     });
 
     // Google Fit Integration Events
@@ -931,36 +1103,28 @@ class HealthApp {
     const syncFitHandler = async () => {
       try {
         const badge = document.getElementById('gfit-sync-badge');
-        badge.className = 'status-pill syncing';
         badge.textContent = 'در حال ارتباط...';
 
         const fitData = await googleFit.fetchDailyActivity(this.currentDate);
-        
-        // ثبت در لاگ فعالیت روزانه
         if (fitData.steps > 0 || fitData.calories > 0) {
           await db.addExerciseLog({
             date: this.currentDate,
             type: 'steps',
-            name: 'همگام‌سازی خودکار Google Fit',
+            name: 'همگام‌سازی Google Fit',
             durationMin: fitData.activeMinutes || 30,
             caloriesBurned: fitData.calories || Math.round(fitData.steps * 0.04),
             steps: fitData.steps
           });
 
           await this.loadDateData(this.currentDate);
-          this.showToast(`اطلاعات با موفقیت دریافت شد: ${fitData.steps} گام`);
+          this.showToast(`گام‌ها دریافت شد: ${fitData.steps.toLocaleString('fa-IR')}`);
         } else {
-          this.showToast('اطلاعات جدیدی در حساب گوگل یافت نشد');
+          this.showToast('دیتای جدیدی در گوگل فیت یافت نشد');
         }
-
-        badge.className = 'status-pill success';
         badge.textContent = 'همگام‌سازی شد';
       } catch (err) {
         console.error('Fit sync error:', err);
         this.showToast(err.message || 'خطا در ارتباط با گوگل', 'error');
-        const badge = document.getElementById('gfit-sync-badge');
-        badge.className = 'status-pill error';
-        badge.textContent = 'خطای اتصال';
       }
     };
 
@@ -968,7 +1132,7 @@ class HealthApp {
     document.getElementById('btn-manual-sync-gfit').addEventListener('click', syncFitHandler);
     document.getElementById('btn-sync-gfit-dash').addEventListener('click', syncFitHandler);
 
-    // Backup & Restore Events
+    // Backup & Restore
     document.getElementById('btn-export-backup').addEventListener('click', async () => {
       const data = await db.exportAllData();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -978,7 +1142,7 @@ class HealthApp {
       a.download = `healthpal-backup-${this.getTodayDateString()}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      this.showToast('فایل پشتیبان با موفقیت دانلود شد');
+      this.showToast('فایل پشتیبان دانلود شد');
     });
 
     document.getElementById('btn-trigger-import').addEventListener('click', () => {
@@ -1001,13 +1165,13 @@ class HealthApp {
           await this.loadWeightHistory();
         } catch (err) {
           console.error('Import error:', err);
-          this.showToast('خطا در خواندن فایل پشتیبان', 'error');
+          this.showToast('خطا در فایل پشتیبان', 'error');
         }
       };
       reader.readAsText(file);
     });
 
-    // --- Gemini AI Assistant Events ---
+    // Gemini AI Events
     document.getElementById('btn-save-gemini-api-key').addEventListener('click', async () => {
       const key = document.getElementById('input-gemini-api-key').value.trim();
       if (!key) {
@@ -1015,7 +1179,7 @@ class HealthApp {
         return;
       }
       await gemini.saveApiKey(key);
-      this.showToast('✨ کلید هوش مصنوعی Gemini با موفقیت ذخیره شد');
+      this.showToast('✨ کلید هوش مصنوعی با موفقیت ذخیره شد');
     });
 
     document.getElementById('btn-diary-ask-gemini').addEventListener('click', () => {
@@ -1026,7 +1190,6 @@ class HealthApp {
       this.handleGeminiFoodSearch('modal');
     });
 
-    // Enter key triggers AI search in search inputs
     document.getElementById('diary-search-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         this.handleGeminiFoodSearch('diary');
@@ -1040,7 +1203,7 @@ class HealthApp {
     });
   }
 
-  // --- Gemini AI Search Execution Method ---
+  // --- Gemini & Zero-Key Food Search Execution ---
   async handleGeminiFoodSearch(context = 'diary') {
     const isModal = context === 'modal';
     const inputEl = document.getElementById(isModal ? 'food-modal-search' : 'diary-search-input');
@@ -1049,7 +1212,7 @@ class HealthApp {
 
     const query = inputEl.value.trim();
     if (!query) {
-      this.showToast('لطفاً نام یا توصیف غذا را در کادر جستجو بنویسید', 'error');
+      this.showToast('لطفاً نام یا توصیف غذا را تایپ کنید', 'error');
       inputEl.focus();
       return;
     }
@@ -1061,11 +1224,11 @@ class HealthApp {
     try {
       const food = await gemini.analyzeFood(query);
       
-      let badgeHtml = '<div class="ai-badge">✨ برآورد هوشمند Gemini</div>';
+      let badgeHtml = '<div class="ai-badge">✨ استخراج شده با Gemini</div>';
       if (food.source === 'openfoodfacts') {
-        badgeHtml = '<div class="ai-badge" style="background: linear-gradient(135deg, #0284c7, #06b6d4);">🌍 دیتابیس جهانی OpenFoodFacts (رایگان)</div>';
+        badgeHtml = '<div class="ai-badge" style="background: linear-gradient(135deg, #0284c7, #06b6d4);">🌍 پایگاه جهانی OpenFoodFacts</div>';
       } else if (food.source === 'smart_local') {
-        badgeHtml = '<div class="ai-badge" style="background: linear-gradient(135deg, #10b981, #059669);">⚡ موتور هوشمند تغذیه (بدون نیاز به API)</div>';
+        badgeHtml = '<div class="ai-badge" style="background: linear-gradient(135deg, #10b981, #059669);">⚡ موتور هوشمند تغذیه</div>';
       }
 
       resultBox.style.display = 'block';
@@ -1074,28 +1237,28 @@ class HealthApp {
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
             <div>
               ${badgeHtml}
-              <h3 style="font-size: 1.05rem; font-weight: 800; color: #fff; margin-bottom: 2px;">${food.name}</h3>
-              <span style="font-size: 0.78rem; color: var(--text-secondary);">${food.unit} • دسته‌بندی: ${food.category}</span>
+              <h3 style="font-size: 1.1rem; font-weight: 900; color: #fff; margin-bottom: 2px;">${food.name}</h3>
+              <span style="font-size: 0.78rem; color: var(--text-muted);">${food.unit} • دسته‌بندی: ${food.category}</span>
             </div>
             <div style="text-align: left;">
-              <span style="font-size: 1.35rem; font-weight: 800; color: #c084fc;">${food.calories}</span>
-              <span style="font-size: 0.72rem; color: var(--text-secondary); display: block;">کیلوکالری</span>
+              <span style="font-size: 1.4rem; font-weight: 900; color: #c084fc;">${food.calories}</span>
+              <span style="font-size: 0.7rem; color: var(--text-muted); display: block;">کیلوکالری</span>
             </div>
           </div>
 
-          ${food.description ? `<p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.5; background: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 6px;">💡 ${food.description}</p>` : ''}
+          ${food.description ? `<p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; background: rgba(0,0,0,0.25); padding: 8px 12px; border-radius: 8px;">💡 ${food.description}</p>` : ''}
 
-          <div style="display: flex; justify-content: space-around; background: rgba(0,0,0,0.25); padding: 8px; border-radius: var(--radius-md); margin-bottom: 12px;">
-            <div style="text-align: center;"><span style="font-size: 0.72rem; color: var(--accent-carbs);">کربوهیدرات</span><div style="font-weight: 700; font-size: 0.9rem;">${food.carbs}g</div></div>
-            <div style="text-align: center;"><span style="font-size: 0.72rem; color: var(--accent-protein);">پروتئین</span><div style="font-weight: 700; font-size: 0.9rem;">${food.protein}g</div></div>
-            <div style="text-align: center;"><span style="font-size: 0.72rem; color: var(--accent-fat);">چربی</span><div style="font-weight: 700; font-size: 0.9rem;">${food.fat}g</div></div>
+          <div style="display: flex; justify-content: space-around; background: rgba(0,0,0,0.3); padding: 10px; border-radius: var(--radius-md); margin-bottom: 14px;">
+            <div style="text-align: center;"><span style="font-size: 0.72rem; color: var(--carbs);">کربوهیدرات</span><div style="font-weight: 800; font-size: 0.95rem;">${food.carbs}g</div></div>
+            <div style="text-align: center;"><span style="font-size: 0.72rem; color: var(--protein);">پروتئین</span><div style="font-weight: 800; font-size: 0.95rem;">${food.protein}g</div></div>
+            <div style="text-align: center;"><span style="font-size: 0.72rem; color: var(--fat);">چربی</span><div style="font-weight: 800; font-size: 0.95rem;">${food.fat}g</div></div>
           </div>
 
           <div style="display: flex; gap: 8px;">
-            <button class="btn btn-primary btn-save-ai-food" style="flex: 2; font-size: 0.8rem; padding: 8px;">
-              💾 ذخیره در دیتابیس لوکال ${isModal ? 'و ثبت در وعده' : ''}
+            <button class="btn btn-primary btn-open-picker-from-ai" style="flex: 2; font-size: 0.85rem; padding: 10px;">
+              ⚖️ تعیین مقدار و سهم مصرفی
             </button>
-            <button class="btn btn-secondary btn-close-ai-result" style="flex: 1; font-size: 0.8rem; padding: 8px;">
+            <button class="btn btn-secondary btn-close-ai-card" style="flex: 1; font-size: 0.85rem; padding: 10px;">
               بستن
             </button>
           </div>
@@ -1104,59 +1267,19 @@ class HealthApp {
 
       resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-      // ذخیره غذای هوش مصنوعی
-      resultBox.querySelector('.btn-save-ai-food').addEventListener('click', async () => {
-        const customItem = {
-          name: food.name,
-          category: food.category,
-          unit: food.unit,
-          unitWeight: food.unitWeight,
-          calories: food.calories,
-          protein: food.protein,
-          carbs: food.carbs,
-          fat: food.fat,
-          description: food.description,
-          isAiGenerated: true
-        };
-
-        const addedId = await db.addCustomFood(customItem);
-        customItem.id = addedId;
-        await this.loadCustomFoods();
-
-        if (isModal) {
-          // افزودن مستقیم به وعده جاری
-          await db.addFoodLog({
-            date: this.currentDate,
-            mealType: this.targetMealForModal,
-            foodId: addedId,
-            name: food.name,
-            amount: 1,
-            unit: food.unit,
-            calories: food.calories,
-            carbs: food.carbs,
-            protein: food.protein,
-            fat: food.fat
-          });
-          this.closeModal('modal-add-food');
-          await this.loadDateData(this.currentDate);
-          this.showToast(`✨ ${food.name} به وعده اضافه و در دیتابیس ذخیره شد`);
-        } else {
-          this.showToast(`✨ ${food.name} در دیتابیس لوکال ذخیره شد و همیشه در دسترس است`);
-        }
-
-        resultBox.style.display = 'none';
-        resultBox.innerHTML = '';
+      // باز کردن پاپ‌آپ پیشرفته تعیین مقدار برای غذای هوش مصنوعی
+      resultBox.querySelector('.btn-open-picker-from-ai').addEventListener('click', () => {
+        this.openPortionPicker(food, this.targetMealForModal);
       });
 
-      // دکمه بستن
-      resultBox.querySelector('.btn-close-ai-result').addEventListener('click', () => {
+      resultBox.querySelector('.btn-close-ai-card').addEventListener('click', () => {
         resultBox.style.display = 'none';
         resultBox.innerHTML = '';
       });
 
     } catch (err) {
-      console.error('Gemini error:', err);
-      this.showToast(err.message || 'خطا در ارتباط با جمینای', 'error');
+      console.error('Search error:', err);
+      this.showToast(err.message || 'خطا در جستجو', 'error');
     } finally {
       btnEl.innerHTML = originalBtnText;
       btnEl.disabled = false;
@@ -1164,7 +1287,7 @@ class HealthApp {
   }
 }
 
-// راه‌اندازی برنامه پس از لود صفحه
+// لود برنامه
 window.addEventListener('DOMContentLoaded', () => {
   const app = new HealthApp();
   app.init();

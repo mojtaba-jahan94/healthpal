@@ -7,7 +7,7 @@
   
   <!-- PWA Meta Tags -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#10b981">
+  <meta name="theme-color" content="#080c15">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="HealthPal">
@@ -78,231 +78,249 @@
     </header>
 
     <!-- =========================================================================
-         VIEW 1: DASHBOARD (داشبورد اصلی)
+         VIEW 1: DASHBOARD (داشبورد اصلی با گیج دایره‌ای شیک)
          ========================================================================= -->
     <main id="view-dashboard" class="main-view active">
       
-      <!-- Calorie Balance Card (MyFitnessPal style equation) -->
-      <section class="card">
-        <div class="card-header">
+      <!-- Hero Calorie Radial Gauge Card -->
+      <section class="calorie-hero-card">
+        <div class="card-header" style="margin-bottom: 12px;">
           <div class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
             </svg>
-            خلاصه کالری روزانه
+            خلاصه روزانه
           </div>
           <span id="tdee-mode-label" class="card-subtitle">هدف کاهش وزن</span>
         </div>
 
-        <div class="calorie-summary-grid">
-          <div class="cal-item">
-            <span id="dash-cal-target" class="cal-val">2000</span>
-            <span class="cal-label">کالری هدف</span>
+        <div class="gauge-centerpiece">
+          <!-- Side Stats Left -->
+          <div class="gauge-side-stat">
+            <div class="stat-pill-box goal">
+              <span class="stat-pill-label">کالری هدف</span>
+              <span id="dash-cal-target" class="stat-pill-val">2000</span>
+            </div>
+            <div class="stat-pill-box exercise">
+              <span class="stat-pill-label">ورزش (+)</span>
+              <span id="dash-cal-exercise" class="stat-pill-val">0</span>
+            </div>
           </div>
-          <div class="cal-op">-</div>
-          <div class="cal-item">
-            <span id="dash-cal-food" class="cal-val">0</span>
-            <span class="cal-label">غذا</span>
+
+          <!-- Circular Radial Ring -->
+          <div class="radial-ring-box">
+            <svg class="radial-ring-svg" viewBox="0 0 120 120">
+              <circle class="radial-track" cx="60" cy="60" r="48"></circle>
+              <circle id="radial-progress-circle" class="radial-progress" cx="60" cy="60" r="48" stroke-dasharray="301.6" stroke-dashoffset="0"></circle>
+            </svg>
+            <div class="radial-ring-content">
+              <span id="dash-cal-remaining" class="radial-remaining-number">2000</span>
+              <span class="radial-remaining-label">باقی‌مانده</span>
+            </div>
           </div>
-          <div class="cal-op">+</div>
-          <div class="cal-item">
-            <span id="dash-cal-exercise" class="cal-val">0</span>
-            <span class="cal-label">ورزش</span>
-          </div>
-          <div class="cal-op">=</div>
-          <div class="cal-item cal-remaining">
-            <span id="dash-cal-remaining" class="cal-val">2000</span>
-            <span class="cal-label">باقی‌مانده</span>
+
+          <!-- Side Stats Right -->
+          <div class="gauge-side-stat">
+            <div class="stat-pill-box food">
+              <span class="stat-pill-label">غذا (-)</span>
+              <span id="dash-cal-food" class="stat-pill-val">0</span>
+            </div>
+            <div class="stat-pill-box" style="border-color: rgba(16, 185, 129, 0.2);">
+              <span class="stat-pill-label">وضعیت</span>
+              <span id="dash-status-text" class="stat-pill-val" style="color: var(--emerald-light); font-size: 0.88rem;">مناسب</span>
+            </div>
           </div>
         </div>
 
-        <!-- Macros Breakdown -->
-        <div class="macros-container">
-          <div class="macro-box">
-            <div class="macro-title carbs">کربوهیدرات</div>
-            <div class="macro-progress-bar">
-              <div id="dash-fill-carbs" class="macro-fill carbs" style="width: 0%;"></div>
+        <!-- Three Vibrant Macronutrient Capsules -->
+        <div class="macros-trio-grid">
+          <!-- Carbs -->
+          <div class="macro-capsule carbs">
+            <div class="macro-capsule-header">
+              <span>🌾 کربوهیدرات</span>
+              <span id="macro-percent-carbs">0%</span>
             </div>
-            <div class="macro-grams">
-              <span id="dash-cur-carbs">0</span> / <span id="dash-target-carbs">250</span> گرم
+            <div class="macro-capsule-bar">
+              <div id="dash-fill-carbs" class="macro-capsule-fill" style="width: 0%;"></div>
             </div>
-          </div>
-
-          <div class="macro-box">
-            <div class="macro-title protein">پروتئین</div>
-            <div class="macro-progress-bar">
-              <div id="dash-fill-protein" class="macro-fill protein" style="width: 0%;"></div>
-            </div>
-            <div class="macro-grams">
-              <span id="dash-cur-protein">0</span> / <span id="dash-target-protein">125</span> گرم
+            <div class="macro-capsule-grams">
+              <strong id="dash-cur-carbs">0</strong> / <span id="dash-target-carbs">250</span>g
             </div>
           </div>
 
-          <div class="macro-box">
-            <div class="macro-title fat">چربی</div>
-            <div class="macro-progress-bar">
-              <div id="dash-fill-fat" class="macro-fill fat" style="width: 0%;"></div>
+          <!-- Protein -->
+          <div class="macro-capsule protein">
+            <div class="macro-capsule-header">
+              <span>🍗 پروتئین</span>
+              <span id="macro-percent-protein">0%</span>
             </div>
-            <div class="macro-grams">
-              <span id="dash-cur-fat">0</span> / <span id="dash-target-fat">55</span> گرم
+            <div class="macro-capsule-bar">
+              <div id="dash-fill-protein" class="macro-capsule-fill" style="width: 0%;"></div>
+            </div>
+            <div class="macro-capsule-grams">
+              <strong id="dash-cur-protein">0</strong> / <span id="dash-target-protein">125</span>g
+            </div>
+          </div>
+
+          <!-- Fat -->
+          <div class="macro-capsule fat">
+            <div class="macro-capsule-header">
+              <span>🥑 چربی</span>
+              <span id="macro-percent-fat">0%</span>
+            </div>
+            <div class="macro-capsule-bar">
+              <div id="dash-fill-fat" class="macro-capsule-fill" style="width: 0%;"></div>
+            </div>
+            <div class="macro-capsule-grams">
+              <strong id="dash-cur-fat">0</strong> / <span id="dash-target-fat">55</span>g
             </div>
           </div>
         </div>
       </section>
 
       <!-- Quick Actions Grid -->
-      <section class="quick-actions">
-        <button id="quick-action-food" class="quick-btn food">
-          <div class="quick-btn-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <section class="quick-actions-grid">
+        <button id="quick-action-food" class="action-card-btn food">
+          <div class="action-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
           </div>
-          <span>ثبت وعده</span>
+          <span>ثبت غذا</span>
         </button>
 
-        <button id="quick-action-exercise" class="quick-btn exercise">
-          <div class="quick-btn-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button id="quick-action-exercise" class="action-card-btn exercise">
+          <div class="action-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
             </svg>
           </div>
           <span>ثبت ورزش</span>
         </button>
 
-        <button id="quick-action-water" class="quick-btn water">
-          <div class="quick-btn-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button id="quick-action-water" class="action-card-btn water">
+          <div class="action-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
             </svg>
           </div>
           <span>+ آب (۱ لیوان)</span>
         </button>
 
-        <button id="quick-action-weight" class="quick-btn weight">
-          <div class="quick-btn-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button id="quick-action-weight" class="action-card-btn weight">
+          <div class="action-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 6v6l4 2"></path>
+              <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
           </div>
           <span>ثبت وزن</span>
         </button>
       </section>
 
-      <!-- Meals Logged Today -->
+      <!-- Meals Breakdown Section -->
       <section class="meals-list">
         
         <!-- صبحانه -->
-        <div class="meal-card" data-meal="breakfast">
-          <div class="meal-header">
-            <div class="meal-info-left">
-              <div class="meal-icon">☕</div>
-              <div class="meal-name">صبحانه</div>
+        <div class="meal-block" data-meal="breakfast">
+          <div class="meal-block-header">
+            <div class="meal-title-group">
+              <div class="meal-emoji-badge">☕</div>
+              <div class="meal-title-name">صبحانه</div>
             </div>
-            <div class="meal-info-right">
-              <span id="meal-cal-breakfast" class="meal-cal-badge">0 کالری</span>
-              <button class="btn-add-food-mini" data-meal="breakfast" title="افزودن به صبحانه">+</button>
+            <div class="meal-right-group">
+              <span id="meal-cal-breakfast" class="meal-cals-badge">0 kcal</span>
+              <button class="btn-add-meal-item" data-meal="breakfast" title="افزودن به صبحانه">+</button>
             </div>
           </div>
-          <div id="meal-items-breakfast" class="meal-items-list">
-            <!-- Items rendered via JS -->
-          </div>
+          <div id="meal-items-breakfast" class="meal-items-container"></div>
         </div>
 
         <!-- ناهار -->
-        <div class="meal-card" data-meal="lunch">
-          <div class="meal-header">
-            <div class="meal-info-left">
-              <div class="meal-icon">🍲</div>
-              <div class="meal-name">ناهار</div>
+        <div class="meal-block" data-meal="lunch">
+          <div class="meal-block-header">
+            <div class="meal-title-group">
+              <div class="meal-emoji-badge">🍲</div>
+              <div class="meal-title-name">ناهار</div>
             </div>
-            <div class="meal-info-right">
-              <span id="meal-cal-lunch" class="meal-cal-badge">0 کالری</span>
-              <button class="btn-add-food-mini" data-meal="lunch" title="افزودن به ناهار">+</button>
+            <div class="meal-right-group">
+              <span id="meal-cal-lunch" class="meal-cals-badge">0 kcal</span>
+              <button class="btn-add-meal-item" data-meal="lunch" title="افزودن به ناهار">+</button>
             </div>
           </div>
-          <div id="meal-items-lunch" class="meal-items-list">
-            <!-- Items rendered via JS -->
-          </div>
+          <div id="meal-items-lunch" class="meal-items-container"></div>
         </div>
 
         <!-- شام -->
-        <div class="meal-card" data-meal="dinner">
-          <div class="meal-header">
-            <div class="meal-info-left">
-              <div class="meal-icon">🥗</div>
-              <div class="meal-name">شام</div>
+        <div class="meal-block" data-meal="dinner">
+          <div class="meal-block-header">
+            <div class="meal-title-group">
+              <div class="meal-emoji-badge">🥗</div>
+              <div class="meal-title-name">شام</div>
             </div>
-            <div class="meal-info-right">
-              <span id="meal-cal-dinner" class="meal-cal-badge">0 کالری</span>
-              <button class="btn-add-food-mini" data-meal="dinner" title="افزودن به شام">+</button>
+            <div class="meal-right-group">
+              <span id="meal-cal-dinner" class="meal-cals-badge">0 kcal</span>
+              <button class="btn-add-meal-item" data-meal="dinner" title="افزودن به شام">+</button>
             </div>
           </div>
-          <div id="meal-items-dinner" class="meal-items-list">
-            <!-- Items rendered via JS -->
-          </div>
+          <div id="meal-items-dinner" class="meal-items-container"></div>
         </div>
 
         <!-- میان‌وعده -->
-        <div class="meal-card" data-meal="snack">
-          <div class="meal-header">
-            <div class="meal-info-left">
-              <div class="meal-icon">🍎</div>
-              <div class="meal-name">میان‌وعده</div>
+        <div class="meal-block" data-meal="snack">
+          <div class="meal-block-header">
+            <div class="meal-title-group">
+              <div class="meal-emoji-badge">🍎</div>
+              <div class="meal-title-name">میان‌وعده</div>
             </div>
-            <div class="meal-info-right">
-              <span id="meal-cal-snack" class="meal-cal-badge">0 کالری</span>
-              <button class="btn-add-food-mini" data-meal="snack" title="افزودن به میان‌وعده">+</button>
+            <div class="meal-right-group">
+              <span id="meal-cal-snack" class="meal-cals-badge">0 kcal</span>
+              <button class="btn-add-meal-item" data-meal="snack" title="افزودن به میان‌وعده">+</button>
             </div>
           </div>
-          <div id="meal-items-snack" class="meal-items-list">
-            <!-- Items rendered via JS -->
-          </div>
+          <div id="meal-items-snack" class="meal-items-container"></div>
         </div>
 
       </section>
 
-      <!-- Water Tracker Mini Widget -->
+      <!-- Water Tracker Card -->
       <section class="card">
         <div class="card-header">
           <div class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
             </svg>
             مصرف آب امروز
           </div>
           <span id="water-stat-label" class="card-subtitle">0 / 2500 میلی‌لیتر</span>
         </div>
-        <div id="water-cups-container" class="water-cups-row">
-          <!-- 10 cups rendered via JS -->
-        </div>
+        <div id="water-cups-container" class="water-cups-row"></div>
       </section>
 
       <!-- Steps & Google Fit Card -->
       <section class="card">
         <div class="card-header">
           <div class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <path d="M18 20V10"></path>
               <path d="M12 20V4"></path>
               <path d="M6 20v-6"></path>
             </svg>
             فعالیت و گام‌شمار Google Fit
           </div>
-          <span id="gfit-sync-badge" class="status-pill success">آماده همگام‌سازی</span>
+          <span id="gfit-sync-badge" class="card-subtitle" style="color: var(--emerald-light);">آماده همگام‌سازی</span>
         </div>
         <div style="display: flex; align-items: center; justify-content: space-between;">
           <div>
-            <div style="font-size: 1.4rem; font-weight: 800; color: var(--accent-primary);">
-              <span id="dash-steps-count">0</span> <span style="font-size: 0.85rem; color: var(--text-secondary);">گام</span>
+            <div style="font-size: 1.5rem; font-weight: 900; color: var(--emerald-light);">
+              <span id="dash-steps-count">0</span> <span style="font-size: 0.85rem; color: var(--text-muted);">گام</span>
             </div>
-            <div style="font-size: 0.8rem; color: var(--text-secondary);">
-              کالری سوزانده شده: <span id="dash-steps-cals" style="font-weight: 700; color: #fff;">0</span> کیلوکالری
+            <div style="font-size: 0.82rem; color: var(--text-muted);">
+              کالری فعالیت: <span id="dash-steps-cals" style="font-weight: 800; color: #fff;">0</span> kcal
             </div>
           </div>
-          <button id="btn-sync-gfit-dash" class="btn btn-secondary" style="padding: 8px 14px; font-size: 0.8rem;">
+          <button id="btn-sync-gfit-dash" class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.82rem;">
             🔄 همگام‌سازی
           </button>
         </div>
@@ -311,26 +329,26 @@
     </main>
 
     <!-- =========================================================================
-         VIEW 2: FOOD DIARY & DATABASE (دفترچه و بانک غذا)
+         VIEW 2: FOOD DIARY & DATABASE (بانک و جستجوی غذا)
          ========================================================================= -->
     <main id="view-diary" class="main-view">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">بانک اطلاعاتی و جستجوی غذاها</div>
-          <button id="btn-open-create-food" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">
-            + تعریف غذای جدید
+          <div class="card-title">بانک اطلاعاتی غذاها</div>
+          <button id="btn-open-create-food" class="btn btn-primary" style="padding: 6px 14px; font-size: 0.82rem;">
+            + غذای سفارشی
           </button>
         </div>
 
-        <div class="form-group" style="margin-bottom: 8px;">
+        <div class="form-group" style="margin-bottom: 10px;">
           <input type="text" id="diary-search-input" class="form-input" placeholder="جستجوی غذا (مثلاً چلوکباب، نان سنگک، سینه مرغ...)">
         </div>
 
         <!-- AI Assistant Banner in Diary -->
         <div id="diary-ai-banner" class="ai-search-banner">
           <div class="ai-banner-text">
-            <span class="ai-banner-title">✨ دستیار هوشمند تغذیه Gemini</span>
-            <span class="ai-banner-desc">غذایی که می‌خوای در لیست نیست؟ بگو جمینای مشخصاتش رو بیاره!</span>
+            <span class="ai-banner-title">✨ دستیار هوشمند تغذیه (Gemini / دیتابیس آزاد)</span>
+            <span class="ai-banner-desc">غذای دلخواه را سرچ کن و هوشمند مشخصاتش رو بیار!</span>
           </div>
           <button id="btn-diary-ask-gemini" class="btn ai-glow-btn" style="padding: 6px 14px; font-size: 0.8rem;">
             ✨ استعلام هوشمند
@@ -341,86 +359,77 @@
         <div id="diary-ai-result" style="display: none;"></div>
 
         <!-- Category Pills -->
-        <div id="diary-category-pills" class="category-pills">
-          <!-- Categories filled via JS -->
-        </div>
+        <div id="diary-category-pills" class="category-pills"></div>
 
         <!-- Food List -->
-        <div id="diary-foods-list" class="food-search-results" style="max-height: 450px;">
-          <!-- Foods list rendered via JS -->
-        </div>
+        <div id="diary-foods-list" class="food-search-results"></div>
       </div>
     </main>
 
     <!-- =========================================================================
-         VIEW 3: EXERCISE & ACTIVITY (ورزش و فعالیت‌ها)
+         VIEW 3: EXERCISE & ACTIVITY (ورزش)
          ========================================================================= -->
     <main id="view-activity" class="main-view">
       
-      <!-- Google Fit Sync Card -->
       <section class="card">
         <div class="card-header">
           <div class="card-title">اتصال به Google Health / Fit</div>
-          <button id="btn-gfit-guide" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;">راهنمای اتصال</button>
+          <button id="btn-gfit-guide" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;">راهنما</button>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
-          با اتصال حساب گوگل، تعداد قدم‌ها، مسافت و کالری سوزانده شده روزانه شما به طور خودکار دریافت می‌شود.
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 14px;">
+          با اتصال حساب گوگل، تعداد قدم‌ها و کالری سوزانده شده روزانه شما مستقیماً دریافت می‌شود.
         </p>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button id="btn-auth-gfit" class="btn btn-primary" style="flex: 1;">
             🔗 اتصال به حساب گوگل
           </button>
           <button id="btn-manual-sync-gfit" class="btn btn-secondary" style="flex: 1;">
-            🔄 همگام‌سازی اطلاعات امروز
+            🔄 دریافت اطلاعات امروز
           </button>
         </div>
       </section>
 
-      <!-- Today's Exercise Log -->
       <section class="card">
         <div class="card-header">
           <div class="card-title">ورزش‌های ثبت شده امروز</div>
-          <button id="btn-open-add-exercise" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">
-            + ثبت ورزش جدید
+          <button id="btn-open-add-exercise" class="btn btn-primary" style="padding: 6px 14px; font-size: 0.82rem;">
+            + ثبت ورزش
           </button>
         </div>
-        <div id="exercises-list-today">
-          <!-- Rendered via JS -->
-        </div>
+        <div id="exercises-list-today"></div>
       </section>
 
     </main>
 
     <!-- =========================================================================
-         VIEW 4: WATER & WEIGHT PROGRESS (آب و پیشرفت وزن)
+         VIEW 4: PROGRESS & WEIGHT (نمودار وزن)
          ========================================================================= -->
     <main id="view-progress" class="main-view">
       
-      <!-- Weight Tracker Card -->
       <section class="card">
         <div class="card-header">
-          <div class="card-title">ثبت و نمودار تغییرات وزن</div>
-          <button id="btn-open-add-weight" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">
+          <div class="card-title">پیشرفت و تغییرات وزن</div>
+          <button id="btn-open-add-weight" class="btn btn-primary" style="padding: 6px 14px; font-size: 0.82rem;">
             + ثبت وزن جدید
           </button>
         </div>
 
-        <div style="display: flex; justify-content: space-around; background: var(--bg-card); padding: 12px; border-radius: var(--radius-md); margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-around; background: rgba(0,0,0,0.3); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 16px;">
           <div style="text-align: center;">
-            <div style="font-size: 0.75rem; color: var(--text-secondary);">وزن فعلی</div>
-            <div style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary);">
-              <span id="stat-current-weight">--</span> <small>kg</small>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">وزن فعلی</div>
+            <div style="font-size: 1.35rem; font-weight: 900; color: #fff;">
+              <span id="stat-current-weight">--</span> <small style="font-size: 0.75rem;">kg</small>
             </div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 0.75rem; color: var(--text-secondary);">وزن هدف</div>
-            <div style="font-size: 1.25rem; font-weight: 800; color: var(--accent-primary);">
-              <span id="stat-target-weight">--</span> <small>kg</small>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">وزن هدف</div>
+            <div style="font-size: 1.35rem; font-weight: 900; color: var(--emerald-light);">
+              <span id="stat-target-weight">--</span> <small style="font-size: 0.75rem;">kg</small>
             </div>
           </div>
           <div style="text-align: center;">
-            <div style="font-size: 0.75rem; color: var(--text-secondary);">شاخص BMI</div>
-            <div style="font-size: 1.25rem; font-weight: 800; color: var(--accent-carbs);">
+            <div style="font-size: 0.75rem; color: var(--text-muted);">شاخص BMI</div>
+            <div style="font-size: 1.35rem; font-weight: 900; color: var(--carbs);">
               <span id="stat-bmi-val">--</span>
             </div>
           </div>
@@ -428,34 +437,28 @@
 
         <!-- SVG Weight Progress Chart -->
         <div class="chart-container">
-          <svg id="weight-chart-svg" preserveAspectRatio="none" viewBox="0 0 500 180">
-            <!-- Chart lines and points drawn dynamically -->
-          </svg>
+          <svg id="weight-chart-svg" preserveAspectRatio="none" viewBox="0 0 500 180"></svg>
         </div>
 
-        <!-- Weight History List -->
-        <div class="card-title" style="font-size: 0.95rem; margin: 12px 0 8px;">تاریخچه ثبت وزن</div>
-        <div id="weight-history-list" style="max-height: 200px; overflow-y: auto;">
-          <!-- Rendered via JS -->
-        </div>
+        <div class="card-title" style="font-size: 0.95rem; margin: 16px 0 10px;">تاریخچه وزن‌های ثبت شده</div>
+        <div id="weight-history-list" style="max-height: 200px; overflow-y: auto;"></div>
       </section>
 
     </main>
 
     <!-- =========================================================================
-         VIEW 5: PROFILE & SETTINGS (پروفایل و تنظیمات)
+         VIEW 5: PROFILE & SETTINGS (پروفایل و اهداف)
          ========================================================================= -->
     <main id="view-profile" class="main-view">
       
-      <!-- Personal Profile & Goal Calculator -->
       <section class="card">
         <div class="card-header">
-          <div class="card-title">مشخصات و محاسبه خودکار کالری</div>
+          <div class="card-title">مشخصات فردی و محاسبه BMR/TDEE</div>
         </div>
         <form id="profile-form">
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-group">
-              <label class="form-label">نام یا عنوان</label>
+              <label class="form-label">نام شما</label>
               <input type="text" id="prof-name" class="form-input" required>
             </div>
             <div class="form-group">
@@ -488,12 +491,12 @@
               <input type="number" id="prof-target-weight" class="form-input" step="0.1" required>
             </div>
             <div class="form-group">
-              <label class="form-label">سطح فعالیت روزانه</label>
+              <label class="form-label">سطح فعالیت</label>
               <select id="prof-activity" class="form-select">
                 <option value="sedentary">کم‌تحرک (پشت‌میزنشین)</option>
-                <option value="light">فعالیت سبک (۱-۳ روز ورزش)</option>
-                <option value="moderate" selected>فعالیت متوسط (۳-۵ روز ورزش)</option>
-                <option value="active">فعالیت زیاد (۶-۷ روز ورزش)</option>
+                <option value="light">فعالیت سبک (۱-۳ روز در هفته)</option>
+                <option value="moderate" selected>فعالیت متوسط (۳-۵ روز در هفته)</option>
+                <option value="active">فعالیت زیاد (۶-۷ روز در هفته)</option>
                 <option value="very_active">بسیار فعال (ورزشکار حرفه‌ای)</option>
               </select>
             </div>
@@ -524,39 +527,39 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">نسبت درشت‌مغذی‌ها (%)</label>
+            <label class="form-label">درصد درشت‌مغذی‌ها (%)</label>
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
               <div>
-                <span style="font-size: 0.75rem; color: var(--accent-carbs);">کربوهیدرات %</span>
+                <span style="font-size: 0.72rem; color: var(--carbs); font-weight: 700;">کربوهیدرات %</span>
                 <input type="number" id="prof-ratio-carbs" class="form-input" min="10" max="80" value="50">
               </div>
               <div>
-                <span style="font-size: 0.75rem; color: var(--accent-protein);">پروتئین %</span>
+                <span style="font-size: 0.72rem; color: var(--protein); font-weight: 700;">پروتئین %</span>
                 <input type="number" id="prof-ratio-protein" class="form-input" min="10" max="80" value="25">
               </div>
               <div>
-                <span style="font-size: 0.75rem; color: var(--accent-fat);">چربی %</span>
+                <span style="font-size: 0.72rem; color: var(--fat); font-weight: 700;">چربی %</span>
                 <input type="number" id="prof-ratio-fat" class="form-input" min="10" max="80" value="25">
               </div>
             </div>
           </div>
 
-          <button type="submit" class="btn btn-primary btn-block">ذخیره پروفایل</button>
+          <button type="submit" class="btn btn-primary btn-block">ذخیره تنظیمات پروفایل</button>
         </form>
       </section>
 
-      <!-- Google Gemini AI Settings -->
-      <section class="card" style="border-color: rgba(139, 92, 246, 0.4); background: linear-gradient(145deg, rgba(30, 41, 69, 0.9), rgba(19, 31, 55, 0.9));">
+      <!-- Google Gemini AI Settings (Optional) -->
+      <section class="card" style="border-color: rgba(168, 85, 247, 0.4);">
         <div class="card-header">
           <div class="card-title" style="color: #c084fc;">
-            ✨ هوش مصنوعی Google Gemini (اختیاری)
+            ✨ هوش مصنوعی Gemini (اختیاری)
           </div>
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; border-color: rgba(139, 92, 246, 0.5); color: #c084fc;">
-            دریافت رایگان API Key ↗
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; border-color: rgba(168, 85, 247, 0.5); color: #c084fc;">
+            دریافت رایگان کلید ↗
           </a>
         </div>
-        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.6;">
-          برنامه به صورت پیش‌فرض <b>بدون نیاز به هیچ کلیدی</b> و با دیتابیس جهانی OpenFoodFacts و موتور هوشمند داخلی کار می‌کند. در صورت تمایل برای درک پیشرفته‌تر زبان محاوره‌ای، می‌توانید کلید رایگان Gemini خود را از لینک بالا وارد کنید:
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.6;">
+          برنامه به صورت پیش‌فرض <b>بدون نیاز به هیچ کلیدی</b> با دیتابیس جهانی OpenFoodFacts و موتور هوشمند داخلی کار می‌کند. برای درک عمیق‌تر جملات محاوره‌ای می‌توانید کلید رایگان Gemini خود را وارد کنید:
         </p>
         <div class="form-group">
           <label class="form-label">Gemini API Key (اختیاری)</label>
@@ -575,9 +578,6 @@
         <div class="form-group">
           <label class="form-label">Google OAuth 2.0 Client ID</label>
           <input type="text" id="input-gfit-client-id" class="form-input" placeholder="xxxx.apps.googleusercontent.com">
-          <small style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 4px;">
-            شناسه کلاینتی که از Google Cloud Console دریافت کرده‌اید.
-          </small>
         </div>
         <button id="btn-save-gfit-client-id" class="btn btn-secondary btn-block">ذخیره Client ID</button>
       </section>
@@ -585,17 +585,17 @@
       <!-- Backup & Restore Data -->
       <section class="card">
         <div class="card-header">
-          <div class="card-title">پشتیبان‌گیری و بازیابی داده‌ها (لوکال)</div>
+          <div class="card-title">پشتیبان‌گیری لوکال (JSON)</div>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
-          تمام داده‌های شما در مرورگر دستگاه شما ذخیره می‌شوند. می‌توانید نسخه پشتیبان JSON دانلود کنید تا اطلاعات را به گوشی یا دستگاه دیگری منتقل نمایید.
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px;">
+          تمام اطلاعات در مرورگر دستگاه شماست. می‌توانید فایل نسخه پشتیبان بگیرید و به هر دستگاه دیگری منتقل کنید.
         </p>
         <div style="display: flex; gap: 10px;">
           <button id="btn-export-backup" class="btn btn-secondary" style="flex: 1;">
             📥 دانلود فایل پشتیبان
           </button>
           <button id="btn-trigger-import" class="btn btn-secondary" style="flex: 1;">
-            📤 بازیابی پشتیبان
+            📤 بازیابی فایل پشتیبان
           </button>
           <input type="file" id="input-import-file" accept=".json" style="display: none;">
         </div>
@@ -607,25 +607,25 @@
          MODALS
          ========================================================================= -->
 
-    <!-- Modal 1: Add Food to Meal -->
+    <!-- Modal 1: Search Food Modal (بانک غذا و استعلام) -->
     <div id="modal-add-food" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
           <div class="modal-title">
-            افزودن غذا به <span id="modal-meal-name-label" style="color: var(--accent-primary);">صبحانه</span>
+            افزودن به <span id="modal-meal-name-label" style="color: var(--emerald-light);">صبحانه</span>
           </div>
           <button class="modal-close" data-close="modal-add-food">&times;</button>
         </div>
 
-        <div class="form-group" style="margin-bottom: 8px;">
-          <input type="text" id="food-modal-search" class="form-input" placeholder="جستجوی غذا (فارسی یا انگلیسی)...">
+        <div class="form-group" style="margin-bottom: 10px;">
+          <input type="text" id="food-modal-search" class="form-input" placeholder="جستجوی غذا یا نوشتن توصیف (مثلاً ۱ بشقاب قورمه سبزی)...">
         </div>
 
         <!-- AI Assistant Banner in Modal -->
         <div id="modal-ai-banner" class="ai-search-banner">
           <div class="ai-banner-text">
-            <span class="ai-banner-title">✨ تحلیل خودکار با Gemini</span>
-            <span class="ai-banner-desc">غذای دلخواه را سرچ کن و هوشمند برآوردش کن</span>
+            <span class="ai-banner-title">✨ استعلام هوشمند (با یا بدون کلید)</span>
+            <span class="ai-banner-desc">غذایی که می‌خوای در لیست نیست؟ فوری برآوردش کن!</span>
           </div>
           <button id="btn-modal-ask-gemini" class="btn ai-glow-btn" style="padding: 6px 12px; font-size: 0.78rem;">
             ✨ استعلام هوشمند
@@ -638,47 +638,88 @@
         <div id="modal-food-categories" class="category-pills"></div>
 
         <div id="modal-food-results" class="food-search-results"></div>
-
-        <!-- Selected Food Portion Config -->
-        <div id="modal-portion-box" style="display: none; background: var(--bg-card); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-top: 10px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <strong id="selected-food-title" style="font-size: 1rem; color: var(--text-primary);"></strong>
-            <span id="selected-food-cal-badge" style="color: var(--accent-primary); font-weight: 700;"></span>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
-            <div class="form-group" style="margin: 0;">
-              <label class="form-label">مقدار / سهم</label>
-              <input type="number" id="selected-food-amount" class="form-input" value="1" min="0.1" step="0.5">
-            </div>
-            <div class="form-group" style="margin: 0;">
-              <label class="form-label">واحد سهم</label>
-              <input type="text" id="selected-food-unit" class="form-input" readonly>
-            </div>
-          </div>
-
-          <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: var(--radius-sm);">
-            <span>کربوهیدرات: <b id="portion-carbs" style="color: var(--accent-carbs);">0</b> گرم</span>
-            <span>پروتئین: <b id="portion-protein" style="color: var(--accent-protein);">0</b> گرم</span>
-            <span>چربی: <b id="portion-fat" style="color: var(--accent-fat);">0</b> گرم</span>
-          </div>
-
-          <button id="btn-confirm-add-food" class="btn btn-primary btn-block">ثبت در وعده غذایی</button>
-        </div>
       </div>
     </div>
 
-    <!-- Modal 2: Create Custom Food -->
+    <!-- Modal 2: NEW ADVANCED PORTION & AMOUNT PICKER (حل کامل مشکل مقدار غذا) -->
+    <div id="modal-portion-picker" class="modal-overlay">
+      <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+          <div class="modal-title">تعیین مقدار و سهم مصرفی</div>
+          <button class="modal-close" data-close="modal-portion-picker">&times;</button>
+        </div>
+
+        <div class="portion-food-head">
+          <div id="picker-food-title" class="portion-food-name">نان سنگک</div>
+          <div id="picker-food-meta" class="portion-food-sub">نان و غلات • سهم پایه: کف دست (حدود ۳۰ گرم)</div>
+        </div>
+
+        <!-- Unit Mode Switcher (سهم vs گرم) -->
+        <div class="unit-mode-tabs">
+          <button id="picker-tab-serving" class="unit-mode-tab active">سهم / واحد</button>
+          <button id="picker-tab-grams" class="unit-mode-tab">گرم (g)</button>
+        </div>
+
+        <!-- Interactive Stepper -->
+        <div class="stepper-box">
+          <button id="btn-stepper-minus" class="stepper-btn">-</button>
+          <div class="stepper-input-container">
+            <input type="number" id="picker-amount-input" class="stepper-input-val" value="1" min="0.1" step="0.5">
+            <span id="picker-amount-unit-label" class="stepper-input-unit">سهم</span>
+          </div>
+          <button id="btn-stepper-plus" class="stepper-btn">+</button>
+        </div>
+
+        <!-- Quick Increment Chips -->
+        <div id="picker-quick-chips" class="quick-chips-row"></div>
+
+        <!-- Meal Selector Destination -->
+        <label class="meal-selector-label">ثبت در کدام وعده؟</label>
+        <div class="meal-pill-group">
+          <button class="meal-pill-btn active" data-meal="breakfast">☕ صبحانه</button>
+          <button class="meal-pill-btn" data-meal="lunch">🍲 ناهار</button>
+          <button class="meal-pill-btn" data-meal="dinner">🥗 شام</button>
+          <button class="meal-pill-btn" data-meal="snack">🍎 میان‌وعده</button>
+        </div>
+
+        <!-- Live Computed Nutrients Grid -->
+        <div class="computed-nutrients-row">
+          <div class="comp-nut-item">
+            <span class="comp-nut-label">کالری</span>
+            <span id="picker-calc-cal" class="comp-nut-val cal">0</span>
+          </div>
+          <div class="comp-nut-item">
+            <span class="comp-nut-label">کربوهیدرات</span>
+            <span id="picker-calc-carbs" class="comp-nut-val c">0g</span>
+          </div>
+          <div class="comp-nut-item">
+            <span class="comp-nut-label">پروتئین</span>
+            <span id="picker-calc-protein" class="comp-nut-val p">0g</span>
+          </div>
+          <div class="comp-nut-item">
+            <span class="comp-nut-label">چربی</span>
+            <span id="picker-calc-fat" class="comp-nut-val f">0g</span>
+          </div>
+        </div>
+
+        <!-- Confirm Button -->
+        <button id="btn-picker-confirm" class="btn btn-primary btn-block">
+          💾 ثبت در وعده غذایی
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal 3: Create Custom Food -->
     <div id="modal-create-food" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
-          <div class="modal-title">تعریف غذای دلخواه جدید</div>
+          <div class="modal-title">تعریف غذای سفارشی جدید</div>
           <button class="modal-close" data-close="modal-create-food">&times;</button>
         </div>
         <form id="form-create-food">
           <div class="form-group">
             <label class="form-label">نام غذا</label>
-            <input type="text" id="new-food-name" class="form-input" placeholder="مثلاً اوتمیل با دانه چیا" required>
+            <input type="text" id="new-food-name" class="form-input" placeholder="مثلاً معجون پروتئینی بادام زمینی" required>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div class="form-group">
@@ -693,29 +734,33 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">واحد سهم (مثلاً ۱۰۰ گرم یا ۱ عدد)</label>
+              <label class="form-label">عنوان سهم (مثلاً ۱۰۰ گرم یا ۱ لیوان)</label>
               <input type="text" id="new-food-unit" class="form-input" value="۱۰۰ گرم" required>
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div class="form-group">
+              <label class="form-label">وزن هر سهم (گرم)</label>
+              <input type="number" id="new-food-unit-weight" class="form-input" value="100" min="1" required>
+            </div>
+            <div class="form-group">
               <label class="form-label">کالری</label>
               <input type="number" id="new-food-calories" class="form-input" min="0" required>
             </div>
-            <div class="form-group">
-              <label class="form-label">پروتئین (گرم)</label>
-              <input type="number" id="new-food-protein" class="form-input" step="0.1" min="0" required>
-            </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
             <div class="form-group">
-              <label class="form-label">کربوهیدرات (گرم)</label>
+              <label class="form-label">کربوهیدرات (g)</label>
               <input type="number" id="new-food-carbs" class="form-input" step="0.1" min="0" required>
             </div>
             <div class="form-group">
-              <label class="form-label">چربی (گرم)</label>
+              <label class="form-label">پروتئین (g)</label>
+              <input type="number" id="new-food-protein" class="form-input" step="0.1" min="0" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">چربی (g)</label>
               <input type="number" id="new-food-fat" class="form-input" step="0.1" min="0" required>
             </div>
           </div>
@@ -725,11 +770,11 @@
       </div>
     </div>
 
-    <!-- Modal 3: Add Exercise -->
+    <!-- Modal 4: Add Exercise -->
     <div id="modal-add-exercise" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
-          <div class="modal-title">ثبت ورزش یا فعالیت</div>
+          <div class="modal-title">ثبت ورزش و فعالیت</div>
           <button class="modal-close" data-close="modal-add-exercise">&times;</button>
         </div>
         <form id="form-add-exercise">
@@ -743,20 +788,20 @@
           </div>
           <div class="form-group">
             <label class="form-label">عنوان ورزش</label>
-            <input type="text" id="ex-name" class="form-input" placeholder="مثلاً پیاده‌روی سریع یا تمرین سینه و زیربغل" required>
+            <input type="text" id="ex-name" class="form-input" placeholder="مثلاً پیاده‌روی سریع" required>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div class="form-group">
-              <label class="form-label">مدت زمان (دقیقه)</label>
+              <label class="form-label">مدت (دقیقه)</label>
               <input type="number" id="ex-duration" class="form-input" value="30" min="1" required>
             </div>
             <div class="form-group">
-              <label class="form-label">کالری مصرفی (تخمینی)</label>
+              <label class="form-label">کالری مصرفی</label>
               <input type="number" id="ex-calories" class="form-input" value="150" min="1" required>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">تعداد گام (اختیاری)</label>
+            <label class="form-label">تعداد قدم‌ها (اختیاری)</label>
             <input type="number" id="ex-steps" class="form-input" placeholder="0">
           </div>
           <button type="submit" class="btn btn-primary btn-block">ثبت فعالیت</button>
@@ -764,7 +809,7 @@
       </div>
     </div>
 
-    <!-- Modal 4: Add Weight -->
+    <!-- Modal 5: Add Weight -->
     <div id="modal-add-weight" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
@@ -773,7 +818,7 @@
         </div>
         <form id="form-add-weight">
           <div class="form-group">
-            <label class="form-label">وزن به کیلوگرم</label>
+            <label class="form-label">وزن (کیلوگرم)</label>
             <input type="number" id="input-weight-val" class="form-input" step="0.1" min="30" max="300" required>
           </div>
           <div class="form-group">
@@ -782,33 +827,32 @@
           </div>
           <div class="form-group">
             <label class="form-label">یادداشت (اختیاری)</label>
-            <input type="text" id="input-weight-notes" class="form-input" placeholder="مثلاً صبح ناشتا، بعد از تمرین">
+            <input type="text" id="input-weight-notes" class="form-input" placeholder="مثلاً صبح ناشتا">
           </div>
           <button type="submit" class="btn btn-primary btn-block">ذخیره وزن</button>
         </form>
       </div>
     </div>
 
-    <!-- Modal 5: Google Fit Setup Guide -->
+    <!-- Modal 6: Google Fit Guide -->
     <div id="modal-gfit-guide" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
-          <div class="modal-title">راهنمای فعال‌سازی Google Fit API</div>
+          <div class="modal-title">راهنمای اتصال به Google Fit</div>
           <button class="modal-close" data-close="modal-gfit-guide">&times;</button>
         </div>
-        <div style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.8;">
+        <div style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.8;">
           <p style="margin-bottom: 10px;">
-            برای دریافت زنده گام‌ها از اکانت گوگل خود بدون نیاز به سرور واسط، مراحل زیر را یک‌بار انجام دهید:
+            برای دریافت زنده گام‌ها از اکانت گوگل خود بدون نیاز به سرور واسط:
           </p>
           <ol style="padding-right: 20px; margin-bottom: 14px;">
-            <li>به <a href="https://console.cloud.google.com/" target="_blank" style="color: var(--accent-primary);">Google Cloud Console</a> بروید و یک پروژه رایگان بسازید.</li>
-            <li>از منوی <b>APIs & Services</b>، گزینه <b>Fitness API</b> را جستجو و روی <b>Enable</b> کلیک کنید.</li>
-            <li>در بخش <b>Credentials</b>، روی <b>Create Credentials</b> و سپس <b>OAuth Client ID</b> (نوع Web Application) بزنید.</li>
-            <li>آدرس دامنه یا <code>http://localhost</code> را در قسمت <b>Authorized JavaScript origins</b> قرار دهید.</li>
-            <li>شناسه تولید شده (Client ID) را کپی کرده و در تب <b>پروفایل &gt; تنظیمات Google Client ID</b> در همین برنامه وارد کنید.</li>
+            <li>وارد <a href="https://console.cloud.google.com/" target="_blank" style="color: var(--emerald-light);">Google Cloud Console</a> شوید.</li>
+            <li>از منوی APIs & Services، سرویس <b>Fitness API</b> را فعال کنید.</li>
+            <li>در بخش Credentials یک <b>OAuth Client ID</b> (نوع Web Application) بسازید.</li>
+            <li>شناسه تولید شده (Client ID) را در بخش تنظیمات وارد نمایید.</li>
           </ol>
-          <p style="color: var(--accent-primary); font-weight: 600;">
-            نکته: در صورت تمایل، می‌توانید فعالیت‌ها و گام‌های خود را به صورت دستی نیز با دکمه «ثبت ورزش» وارد نمایید.
+          <p style="color: var(--emerald-light); font-weight: 600;">
+            همچنین می‌توانید در صورت تمایل گام‌ها و ورزش‌های خود را به صورت دستی ثبت کنید.
           </p>
         </div>
       </div>
@@ -817,7 +861,7 @@
     <!-- Bottom Navigation Bar -->
     <nav class="bottom-nav">
       <button class="nav-item active" data-view="view-dashboard">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
           <polyline points="9 22 9 12 15 12 15 22"></polyline>
         </svg>
@@ -825,29 +869,29 @@
       </button>
 
       <button class="nav-item" data-view="view-diary">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
           <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
         </svg>
-        <span>یادداشت غذا</span>
+        <span>بانک غذا</span>
       </button>
 
       <button class="nav-item" data-view="view-activity">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
         </svg>
         <span>ورزش</span>
       </button>
 
       <button class="nav-item" data-view="view-progress">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
         </svg>
-        <span>پیشرفت وزن</span>
+        <span>پیشرفت</span>
       </button>
 
       <button class="nav-item" data-view="view-profile">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
         </svg>
